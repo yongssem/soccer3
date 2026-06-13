@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>⚽ 무무월드컵 3 — 패널티킥 슛아웃</title>
+  <meta name="description" content="우리 반 키커왕은 누구? 패스 앤 플레이 패널티킥 슛아웃 게임." />
+  <meta property="og:title" content="⚽ 무무월드컵 3" />
+  <meta property="og:description" content="우리 반 키커왕은 누구? 패널티킥 슛아웃" />
+  <meta property="og:type" content="website" />
+
+  <!-- Pretendard CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- canvas-confetti (GOAL 폭죽) -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Pretendard', 'sans-serif'] },
+          colors: {
+            trophy: '#FFC633',
+            p1: '#3B82F6',
+            p2: '#EF4444',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* ===== 무무월드컵 스타디움 디자인 토큰 ===== */
+    :root {
+      --trophy:        #FFC633; /* 트로피 옐로우 — 메인 CTA */
+      --trophy-dark:   #E0A800;
+      --p1:            #3B82F6; /* 플레이어 1 블루 */
+      --p1-dark:       #1D4ED8;
+      --p2:            #EF4444; /* 플레이어 2 레드 */
+      --p2-dark:       #B91C1C;
+      --grass-top:     #2E8B3D; /* 잔디 그라데이션 상단 */
+      --grass-bottom:  #186A2A; /* 잔디 그라데이션 하단 */
+      --pitch-line:    rgba(255,255,255,0.85); /* 라인 화이트 */
+      --ink:           #F8FAFC; /* 스타디움 본문(밝은 글자) */
+      --ink-muted:     rgba(248,250,252,0.72);
+      --overlay:       rgba(6, 24, 12, 0.55); /* 가독성 오버레이 1겹 */
+      --card-bg:       rgba(8, 30, 16, 0.66);
+      --card-border:   rgba(255,255,255,0.14);
+    }
+
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: 'Pretendard', sans-serif;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* 잔디 fallback 배경 (bg-landing.png 없을 때) */
+    .stadium-bg {
+      background:
+        linear-gradient(var(--overlay), var(--overlay)),
+        url('public/bg-landing.png'),
+        linear-gradient(180deg, var(--grass-top) 0%, var(--grass-bottom) 100%);
+      background-size: cover, cover, cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    /* 잔디 줄무늬 (이미지 없어도 스타디움 느낌) */
+    .pitch-stripes::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        180deg,
+        transparent 0, transparent 56px,
+        rgba(255,255,255,0.045) 56px, rgba(255,255,255,0.045) 112px
+      );
+      pointer-events: none;
+    }
+
+    .stadium-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* 입장 애니메이션 */
+    @keyframes popIn {
+      0%   { opacity: 0; transform: translateY(18px) scale(0.96); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .pop-in { animation: popIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+    @keyframes floatBall {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50%      { transform: translateY(-12px) rotate(8deg); }
+    }
+    .float-ball { animation: floatBall 3s ease-in-out infinite; }
+
+    .btn-press { transition: transform 0.08s ease; }
+    .btn-press:active { transform: scale(0.96); }
+
+    /* 인풋 포커스 */
+    .stadium-input {
+      background: rgba(255,255,255,0.10);
+      border: 2px solid rgba(255,255,255,0.18);
+      color: var(--ink);
+      transition: border-color 0.18s ease, background 0.18s ease;
+    }
+    .stadium-input::placeholder { color: rgba(248,250,252,0.45); }
+    .stadium-input:focus { outline: none; background: rgba(255,255,255,0.16); }
+
+    /* ===== 듀얼 패드 (좌우 동시 드래그) ===== */
+    .pad {
+      position: relative;
+      flex: 1 1 0;
+      overflow: hidden;
+      touch-action: none;            /* 드래그 시 스크롤 방지 */
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .pad-divider { width: 3px; background: var(--pitch-line); opacity: 0.5; }
+    .pad svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .anchor {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-size: 44px;
+      line-height: 1;
+      pointer-events: none;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+      transition: transform 0.05s linear;
+    }
+    .pad-gauge {
+      position: absolute; left: 12px; right: 12px; bottom: 12px; height: 12px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.2);
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .pad-gauge > i {
+      display: block; height: 100%; width: 0%;
+      border-radius: 999px;
+      transition: width 0.04s linear;
+    }
+    .ready-badge {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      padding: 4px 14px; border-radius: 999px;
+      background: var(--trophy); color: #1a1a1a; font-weight: 800; font-size: 14px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .pad-hint {
+      position: absolute; top: 62%; left: 50%; transform: translate(-50%, -50%);
+      text-align: center; pointer-events: none; width: 90%;
+    }
+
+    /* 시점 장면 (배경 SVG는 영역 채움) */
+    .scene { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    /* 배우(emoji) — 절대배치, 변형 애니메이션 대상 */
+    .actor { position: absolute; pointer-events: none; line-height: 1; will-change: transform; }
+    .figure-kicker { font-size: 40px; filter: drop-shadow(0 4px 5px rgba(0,0,0,0.45)); }
+    .figure-kicker-far { font-size: 22px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45)); opacity: 0.9; }
+    .ball-fly { position: absolute; font-size: 30px; pointer-events: none; will-change: transform; }
+
+    /* ===== 키퍼 골대 + 9구역 선택 ===== */
+    .goal-frame {
+      position: absolute; left: 15%; right: 15%; top: 14%; height: 42%;
+      border: 4px solid transparent;
+      border-image: linear-gradient(90deg, #FFD6E0 0%, #FFC633 50%, #C8E6F5 100%) 1;
+      pointer-events: none;
+    }
+    .zone-grid {
+      position: absolute; inset: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 4px; padding: 4px; pointer-events: none;
+    }
+    .zone-cell {
+      pointer-events: auto; cursor: pointer; border-radius: 8px;
+      border: 1.5px solid rgba(255,255,255,0.22);
+      background: rgba(255,255,255,0.03);
+      transition: background 0.12s ease, border-color 0.12s ease, transform 0.1s ease;
+    }
+    .zone-cell:hover { background: rgba(255,255,255,0.12); }
+    .zone-cell.sel {
+      background: rgba(255,198,51,0.40);
+      border-color: var(--trophy);
+      box-shadow: inset 0 0 0 2px var(--trophy);
+    }
+
+    /* 결과 오버레이 */
+    .result-overlay {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(4, 18, 9, 0.55);
+      backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    }
+    @keyframes resultPop {
+      0%   { opacity: 0; transform: scale(0.4) rotate(-8deg); }
+      60%  { opacity: 1; transform: scale(1.12) rotate(2deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0); }
+    }
+    .result-pop { animation: resultPop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    @keyframes netShake {
+      0%,100% { transform: translateX(0); }
+      25% { transform: translateX(-2px); } 75% { transform: translateX(2px); }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="stadium-bg pitch-stripes relative min-h-screen flex flex-col"></div>
+
+  <script type="module">
+    // ============================================================
+    // 무무월드컵 3 — Phase 1 (랜딩 + 이름 입력)
+    // 세션 상태 + 화면 라우팅 뼈대
+    // ============================================================
+
+    // ----- 세션 상태 (새로고침 시 초기화 = 한 판 단위) -----
+    const gameState = {
+      screen: 'landing',     // 'landing' | 'names' | 'play' | 'result'
+      p1Name: '',
+      p2Name: '',
+      round: 1,
+      p1Score: 0,
+      p2Score: 0,
+      kickerThisRound: 'p1',  // 'p1' | 'p2'
+      history: [],            // [{ round, kicker, result }]
+      suddenDeath: false,
+      // --- 라운드 진행용 ---
+      playStage: 'duel',
+    };
+
+    // 헬퍼: 키커/키퍼 정보
+    const kickerKey = () => gameState.kickerThisRound;
+    const keeperKey = () => (gameState.kickerThisRound === 'p1' ? 'p2' : 'p1');
+    const nameOf  = (k) => gameState[k + 'Name'] || k.toUpperCase();
+    const colorOf = (k) => (k === 'p1' ? 'var(--p1)' : 'var(--p2)');
+
+    const app = document.getElementById('app');
+
+    // ----- 라우터: screen 값에 따라 화면 렌더 -----
+    function render() {
+      const screens = {
+        landing: renderLanding,
+        names:   renderNames,
+        play:    renderPlay,
+        result:  renderPlaceholder,
+      };
+      const view = (screens[gameState.screen] || renderLanding)();
+      app.querySelectorAll('[data-screen]').forEach((n) => n.remove());
+      // 화면 + 푸터를 항상 같이
+      app.insertAdjacentHTML('afterbegin', view + footer());
+      bindEvents();
+    }
+
+    function go(screen) {
+      gameState.screen = screen;
+      render();
+    }
+
+    // ----- 공통 푸터 (모든 화면 하단) -----
+    function footer() {
+      return `
+        <footer data-screen class="mt-auto py-5 text-center text-xs"
+                style="color: var(--ink-muted);">
+          © 2026 무궁무진클래스 · 용쌤 →
+          <a href="https://mumuclass.kr" target="_blank" rel="noopener"
+             class="underline hover:text-white">mumuclass.kr</a>
+        </footer>`;
+    }
+
+    // ----- 랜딩 화면 -----
+    function renderLanding() {
+      return `
+        <main data-screen class="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <div class="pop-in">
+            <div class="float-ball text-7xl mb-4 drop-shadow-lg" aria-hidden="true">⚽</div>
+            <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight drop-shadow-md">
+              무무월드컵 <span style="color: var(--trophy);">3</span>
+            </h1>
+            <p class="mt-3 text-base sm:text-lg" style="color: var(--ink-muted);">
+              우리 반 키커왕은 누구?
+            </p>
+            <button id="btn-start"
+              class="btn-press mt-9 px-10 py-4 rounded-2xl font-bold text-lg shadow-xl"
+              style="background: var(--trophy); color: #1a1a1a;">
+              🏆 대결 시작
+            </button>
+          </div>
+        </main>`;
+    }
+
+    // ----- 이름 입력 화면 -----
+    function renderNames() {
+      return `
+        <main data-screen class="flex-1 flex flex-col items-center justify-center px-6">
+          <div class="pop-in w-full max-w-sm">
+            <h2 class="text-2xl font-bold text-center mb-6 drop-shadow">선수 이름을 정해줘</h2>
+
+            <div class="stadium-card rounded-3xl p-6 space-y-5 shadow-2xl">
+              <!-- P1 -->
+              <div>
+                <label class="flex items-center gap-2 mb-2 font-bold"
+                       style="color: var(--p1);">
+                  <span class="inline-block w-3 h-3 rounded-full" style="background: var(--p1);"></span>
+                  플레이어 1
+                </label>
+                <input id="in-p1" type="text" maxlength="8" placeholder="P1"
+                  class="stadium-input w-full rounded-xl px-4 py-3 text-lg font-semibold"
+                  style="border-color: rgba(59,130,246,0.5);" value="${esc(gameState.p1Name)}" />
+              </div>
+
+              <!-- VS -->
+              <div class="text-center font-black text-xl" style="color: var(--ink-muted);">VS</div>
+
+              <!-- P2 -->
+              <div>
+                <label class="flex items-center gap-2 mb-2 font-bold"
+                       style="color: var(--p2);">
+                  <span class="inline-block w-3 h-3 rounded-full" style="background: var(--p2);"></span>
+                  플레이어 2
+                </label>
+                <input id="in-p2" type="text" maxlength="8" placeholder="P2"
+                  class="stadium-input w-full rounded-xl px-4 py-3 text-lg font-semibold"
+                  style="border-color: rgba(239,68,68,0.5);" value="${esc(gameState.p2Name)}" />
+              </div>
+            </div>
+
+            <button id="btn-play"
+              class="btn-press w-full mt-6 px-8 py-4 rounded-2xl font-bold text-lg shadow-xl"
+              style="background: var(--trophy); color: #1a1a1a;">
+              ⚽ 경기 시작
+            </button>
+
+            <button id="btn-back"
+              class="block mx-auto mt-3 text-sm underline" style="color: var(--ink-muted);">
+              ← 뒤로
+            </button>
+          </div>
+        </main>`;
+    }
+
+    // ===== play 화면 — 스코어보드 + 단계별 내용 (Phase 2~3) =====
+    const TOTAL_ROUNDS = 5;
+
+    function renderPlay() {
+      // duel — 좌우 동시 드래그 (판정은 연출 오버레이로)
+      return `
+        <main data-screen class="flex-1 flex flex-col">
+          <div class="px-4 pt-3 flex justify-center">${scoreboard()}</div>
+          ${renderDuel()}
+        </main>`;
+    }
+
+    // 상단 스코어보드 — 점수 + 라운드별 골/세이브 점
+    function scoreboard() {
+      return `
+        <div class="w-full max-w-md mb-6">
+          <div class="stadium-card rounded-2xl px-4 py-3 flex items-center justify-between">
+            <div class="flex-1 text-center">
+              <div class="text-sm font-bold truncate" style="color: var(--p1);">${esc(nameOf('p1'))}</div>
+              <div class="text-3xl font-black">${gameState.p1Score}</div>
+            </div>
+            <div class="px-3 text-center">
+              <div class="text-[10px] font-bold" style="color: var(--ink-muted);">ROUND</div>
+              <div class="font-black text-lg">${Math.min(gameState.round, TOTAL_ROUNDS)}/${TOTAL_ROUNDS}</div>
+            </div>
+            <div class="flex-1 text-center">
+              <div class="text-sm font-bold truncate" style="color: var(--p2);">${esc(nameOf('p2'))}</div>
+              <div class="text-3xl font-black">${gameState.p2Score}</div>
+            </div>
+          </div>
+          <div class="flex justify-between mt-2 px-1 text-base">
+            <div class="flex gap-1">${dots('p1')}</div>
+            <div class="flex gap-1">${dots('p2')}</div>
+          </div>
+        </div>`;
+    }
+
+    // 한 선수의 5칸 결과 점 (⚽골 / 🧤세이브 / · 미진행)
+    function dots(k) {
+      const kicks = gameState.history.filter((h) => h.kicker === k);
+      let out = '';
+      for (let i = 0; i < TOTAL_ROUNDS; i++) {
+        const r = kicks[i];
+        const sym = !r ? '·' : r.result === 'goal' ? '⚽' : '🧤';
+        const op = r ? '' : 'opacity-30';
+        out += `<span class="${op}">${sym}</span>`;
+      }
+      return out;
+    }
+
+    // ===== 듀얼 화면 — P1=왼쪽 / P2=오른쪽 고정, 역할만 교대 =====
+    // 듀얼 중 두 패드의 선택을 임시 저장 (둘 다 차면 판정)
+    let duelChoice = { p1: null, p2: null }; // {x, y, power}
+
+    function renderDuel() {
+      const leftRole  = gameState.kickerThisRound === 'p1' ? 'kicker' : 'keeper';
+      const rightRole = gameState.kickerThisRound === 'p1' ? 'keeper' : 'kicker';
+      return `
+        <div class="flex-1 flex">
+          ${pad('p1', leftRole)}
+          <div class="pad-divider"></div>
+          ${pad('p2', rightRole)}
+        </div>`;
+    }
+
+    // 키커 시점 장면 — 컬러 골대(위) + 페널티 박스 원근
+    function sceneKicker(player) {
+      return `
+        <svg class="scene" viewBox="0 0 100 150" preserveAspectRatio="xMidYMin slice">
+          <defs>
+            <linearGradient id="pitchK-${player}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#1f7a33"/><stop offset="1" stop-color="#0f5220"/>
+            </linearGradient>
+            <linearGradient id="goal-${player}" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#FFD6E0"/><stop offset="0.5" stop-color="#FFC633"/>
+              <stop offset="1" stop-color="#C8E6F5"/>
+            </linearGradient>
+          </defs>
+          <rect width="100" height="150" fill="url(#pitchK-${player})"/>
+          <path d="M22 60 L78 60 L96 132 L4 132 Z" fill="none"
+                stroke="rgba(255,255,255,0.28)" stroke-width="1.2"/>
+          <ellipse cx="50" cy="118" rx="3" ry="1.3" fill="rgba(255,255,255,0.8)"/>
+          <!-- 컬러 골대 -->
+          <g id="goalframe-${player}">
+            <path d="M28 47 L28 24 L72 24 L72 47" fill="none"
+                  stroke="url(#goal-${player})" stroke-width="3.4" stroke-linejoin="round"/>
+            <g stroke="rgba(255,255,255,0.22)" stroke-width="0.6">
+              <line x1="36" y1="24" x2="36" y2="47"/><line x1="44" y1="24" x2="44" y2="47"/>
+              <line x1="50" y1="24" x2="50" y2="47"/><line x1="56" y1="24" x2="56" y2="47"/>
+              <line x1="64" y1="24" x2="64" y2="47"/>
+              <line x1="28" y1="31" x2="72" y2="31"/><line x1="28" y1="39" x2="72" y2="39"/>
+            </g>
+          </g>
+        </svg>`;
+    }
+
+    // 키퍼 시점 장면 — 잔디 배경 + 멀리 필드 라인 (골대 프레임은 HTML 오버레이로)
+    function sceneKeeper(player) {
+      return `
+        <svg class="scene" viewBox="0 0 100 150" preserveAspectRatio="xMidYMin slice">
+          <defs>
+            <linearGradient id="pitchG-${player}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#15692b"/><stop offset="1" stop-color="#1f7a33"/>
+            </linearGradient>
+          </defs>
+          <rect width="100" height="150" fill="url(#pitchG-${player})"/>
+          <!-- 멀리 페널티 라인 (골대 앞 필드 원근) -->
+          <line x1="0" y1="92" x2="100" y2="92" stroke="rgba(255,255,255,0.16)" stroke-width="1"/>
+          <path d="M14 120 L86 120 L68 92 L32 92 Z" fill="none"
+                stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+        </svg>`;
+    }
+
+    // 9구역 셀 — data-zx(-1좌~1우) / data-zy(0바닥~1상단)
+    function zoneCells() {
+      const xs = [-0.8, 0, 0.8];   // 좌 · 중 · 우
+      const ys = [0.8, 0.5, 0.2];  // 위 · 중 · 아래 (행 순서)
+      let out = '';
+      for (let r = 0; r < 3; r++)
+        for (let c = 0; c < 3; c++)
+          out += `<div class="zone-cell" data-zone="${r * 3 + c}" data-zx="${xs[c]}" data-zy="${ys[r]}"></div>`;
+      return out;
+    }
+
+    // 한 쪽 패드 — 키커(드래그) / 키퍼(9구역 탭) 분기
+    function pad(player, role) {
+      const isKicker = role === 'kicker';
+      const accent = colorOf(player);
+      const roleLabel = isKicker ? '키커 — 공을 당겨 차기' : '골키퍼 — 막을 구역을 탭!';
+
+      const hint = `
+        <div class="pad-hint" id="hint-${player}">
+          <div class="font-extrabold text-base" style="color:${accent};">${esc(nameOf(player))}</div>
+          <div class="text-xs mt-1" style="color: var(--ink-muted);">${roleLabel}</div>
+        </div>`;
+      const ready = `<div class="ready-badge" id="ready-${player}" style="display:none;">READY ✓</div>`;
+
+      if (isKicker) {
+        // 키커: 골대(위) + 가까운 키커 + 슬링샷 드래그
+        return `
+          <div class="pad" id="pad-${player}" data-player="${player}" data-role="${role}">
+            ${sceneKicker(player)}
+            <div class="actor figure-kicker" id="kicker-${player}" style="left:62%; bottom:14%;">🏃</div>
+            <svg><line id="arrow-${player}" x1="0" y1="0" x2="0" y2="0"
+                       stroke="${accent}" stroke-width="5" stroke-linecap="round" opacity="0" /></svg>
+            <div class="anchor" id="anchor-${player}">⚽</div>
+            ${hint}
+            ${ready}
+            <div class="pad-gauge"><i id="gauge-${player}" style="background:${accent};"></i></div>
+          </div>`;
+      }
+
+      // 키퍼: 멀리 키커 + 골대 프레임 + 9구역 + 날아올 공 + 글러브
+      return `
+        <div class="pad" id="pad-${player}" data-player="${player}" data-role="${role}">
+          ${sceneKeeper(player)}
+          <div class="actor figure-kicker-far" id="farkicker-${player}" style="left:50%; top:4%; transform:translateX(-50%);">🏃</div>
+          <div class="ball-fly" id="farball-${player}" style="left:50%; top:9%; transform:translate(-50%,-50%); opacity:0;">⚽</div>
+          <div class="goal-frame" id="goalframe-${player}">
+            <div class="zone-grid">${zoneCells()}</div>
+          </div>
+          <div class="anchor" id="anchor-${player}" style="font-size:50px; opacity:0;">🧤</div>
+          ${hint}
+          ${ready}
+        </div>`;
+    }
+
+    // ----- 듀얼 판정 + 연출 -----
+    let resolving = false;
+
+    function resolveDuel() {
+      if (resolving) return;
+      resolving = true;
+      const k = kickerKey(), g = keeperKey();
+      const shot = duelChoice[k];   // {x,y,power}  슛 목표
+      const dive = duelChoice[g];   // {x,y,zone}   키퍼가 고른 구역
+      const reach = 0.46 - shot.power * 0.16;       // 강슛일수록 막을 범위가 좁아짐
+      const dist = Math.hypot(shot.x - dive.x, shot.y - dive.y);
+      const isGoal = dist > reach;
+      if (isGoal) gameState[k + 'Score'] += 1;
+      gameState.history.push({ round: gameState.round, kicker: k, shot, dive, result: isGoal ? 'goal' : 'save' });
+      animateDuel(k, g, shot, dive, isGoal).then(() => {
+        resolving = false;
+        showResult(isGoal, k, shot);
+      });
+    }
+
+    // 포물선 궤적 키프레임 — 수평 등속 + 위로 볼록한 호 + 스핀 + 원근 스케일
+    // dx,dy = 총 이동량(px), arc = 호 최고점 높이(px), s0→s1 = 스케일, spin = 총 회전(deg)
+    function arcFrames(dx, dy, { arc = 0, s0 = 1, s1 = 1, spin = 0, steps = 18 } = {}) {
+      const out = [];
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = dx * t;
+        const y = dy * t - arc * 4 * t * (1 - t);   // 4t(1-t): 양끝 0, 중앙 최대
+        const s = s0 + (s1 - s0) * t;
+        const rot = spin * t;
+        out.push({
+          transform: `translate(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px)) scale(${s.toFixed(3)}) rotate(${rot.toFixed(0)}deg)`,
+          offset: t,
+        });
+      }
+      return out;
+    }
+
+    // 공/키퍼 연출 (Web Animations API). k=키커쪽 player, g=키퍼쪽 player
+    function animateDuel(k, g, shot, dive, isGoal) {
+      const ease = 'cubic-bezier(0.4, 0, 0.2, 1)';
+      // 키커 쪽: 공이 골대로 날아감 + 키커 차는 모션
+      const padK = document.getElementById('pad-' + k);
+      const ball = document.getElementById('anchor-' + k);
+      const kicker = document.getElementById('kicker-' + k);
+      if (padK && ball) {
+        const r = padK.getBoundingClientRect();
+        const fromY = r.height * 0.78;
+        const tx = shot.x * r.width * 0.22;          // 골대 가로
+        const ty = (r.height * 0.30 - shot.y * r.height * 0.05) - fromY; // 골대 위쪽
+        ball.animate(
+          arcFrames(tx, ty, { arc: Math.abs(ty) * 0.22 + 24, s0: 1, s1: 0.55, spin: 540 }),
+          { duration: 680, easing: 'linear', fill: 'forwards' });
+      }
+      if (kicker) kicker.animate(
+        [{ transform: 'translateX(0) rotate(0)' },
+         { transform: 'translateX(-8px) rotate(-12deg)', offset: 0.3 },
+         { transform: 'translateX(4px) rotate(6deg)' }],
+        { duration: 450, easing: ease, fill: 'forwards' });
+
+      // 키퍼 쪽: 공이 골대 안 슛 지점으로 날아오고, 글러브는 선택 구역에서 반응
+      const padG = document.getElementById('pad-' + g);
+      const glove = document.getElementById('anchor-' + g);
+      const farball = document.getElementById('farball-' + g);
+      if (padG && glove) {
+        glove.animate(
+          [{ transform: 'translate(-50%,-50%) scale(1)' },
+           { transform: 'translate(-50%,-50%) scale(1.18)', offset: 0.5 },
+           { transform: 'translate(-50%,-50%) scale(1.05)' }],
+          { duration: 420, easing: ease, fill: 'forwards', delay: 120 });
+        if (farball) {
+          const r = padG.getBoundingClientRect();
+          const sp = goalFramePoint(padG, shot.x, shot.y);   // 슛이 향한 골대 안 지점
+          const sx = sp.px - r.width * 0.5;
+          const sy = sp.py - r.height * 0.09;
+          farball.style.opacity = '1';
+          farball.animate(
+            arcFrames(sx, sy, { arc: r.height * 0.16 + 30, s0: 0.5, s1: 1.05, spin: 720 }),
+            { duration: 700, easing: 'linear', fill: 'forwards' });
+        }
+      }
+      return new Promise((res) => setTimeout(res, 820));
+    }
+
+    // 골대 프레임 안 (x:-1좌~1우, y:0바닥~1상단) → 패드 기준 픽셀 좌표
+    function goalFramePoint(padEl, x, y) {
+      const gf = document.getElementById('goalframe-' + padEl.dataset.player).getBoundingClientRect();
+      const pr = padEl.getBoundingClientRect();
+      const px = (gf.left - pr.left) + gf.width * (x + 1) / 2;
+      const py = (gf.top - pr.top) + gf.height * (1 - y);
+      return { px, py };
+    }
+
+    // 결과 오버레이 (GOAL/SAVE + 폭죽 + 다음 버튼)
+    function showResult(isGoal, k, shot) {
+      const isLast = gameState.round >= TOTAL_ROUNDS && gameState.kickerThisRound === 'p2';
+      const ov = document.createElement('div');
+      ov.className = 'result-overlay';
+      ov.setAttribute('data-screen', '');
+      ov.innerHTML = `
+        <div class="result-pop text-center px-6">
+          <div class="text-7xl mb-2">${isGoal ? '🥅' : '🧤'}</div>
+          <h2 class="text-6xl font-black mb-3 drop-shadow-lg"
+              style="color: ${isGoal ? 'var(--trophy)' : '#fff'};">
+            ${isGoal ? 'GOAL!' : 'SAVE!'}
+          </h2>
+          <p class="text-base mb-6" style="color: var(--ink-muted);">
+            ${isGoal ? `${esc(nameOf(k))} 득점!  ⚡파워 ${Math.round(shot.power * 100)}%` : '골키퍼가 막아냈다!'}
+          </p>
+          <button id="ov-next"
+            class="btn-press px-10 py-4 rounded-2xl font-bold text-lg shadow-xl"
+            style="background: var(--trophy); color: #1a1a1a;">
+            ${isLast ? '🏆 최종 결과 보기' : '다음 킥 ▶'}
+          </button>
+        </div>`;
+      app.appendChild(ov);
+      document.getElementById('ov-next').onclick = () => { ov.remove(); advanceTurn(); };
+      if (isGoal && window.confetti) {
+        window.confetti({ particleCount: 90, spread: 75, origin: { y: 0.4 },
+          colors: ['#FFC633', '#FFD6E0', '#C8E6F5', '#3B82F6'] });
+      }
+    }
+
+    // 판정 후 다음 차례로 — 역할 교대 / 라운드 진행 / 종료
+    function advanceTurn() {
+      duelChoice = { p1: null, p2: null };
+      if (gameState.kickerThisRound === 'p1') {
+        gameState.kickerThisRound = 'p2';   // 같은 라운드 역할 교대
+        render();
+      } else {
+        gameState.kickerThisRound = 'p1';
+        if (gameState.round >= TOTAL_ROUNDS) {
+          go('result');
+        } else {
+          gameState.round += 1;
+          render();
+        }
+      }
+    }
+
+    // ----- result 화면 — 최종 점수 (우승 연출은 Phase 5) -----
+    function renderPlaceholder() {
+      const p1 = gameState.p1Score, p2 = gameState.p2Score;
+      const tie = p1 === p2;
+      const winK = p1 > p2 ? 'p1' : 'p2';
+      return `
+        <main data-screen class="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <div class="pop-in w-full max-w-sm">
+            <div class="text-6xl mb-3">${tie ? '🤝' : '🏆'}</div>
+            <h2 class="text-2xl font-extrabold mb-5 drop-shadow">
+              ${tie ? '동점!' : `${esc(nameOf(winK))} 승리!`}
+            </h2>
+            <div class="stadium-card rounded-3xl px-6 py-6 flex items-center justify-center gap-4 mb-6 shadow-2xl">
+              <div class="text-center">
+                <div class="text-sm font-bold" style="color: var(--p1);">${esc(nameOf('p1'))}</div>
+                <div class="text-5xl font-black">${p1}</div>
+              </div>
+              <div class="text-2xl font-black" style="color: var(--ink-muted);">:</div>
+              <div class="text-center">
+                <div class="text-sm font-bold" style="color: var(--p2);">${esc(nameOf('p2'))}</div>
+                <div class="text-5xl font-black">${p2}</div>
+              </div>
+            </div>
+            ${tie ? `<p class="text-xs mb-4" style="color: var(--ink-muted);">Phase 5에서 서든데스 추가</p>` : ''}
+            <button id="btn-home"
+              class="btn-press px-8 py-4 rounded-2xl font-bold text-lg shadow-xl"
+              style="background: var(--trophy); color: #1a1a1a;">
+              🔄 다시 하기
+            </button>
+          </div>
+        </main>`;
+    }
+
+    // ----- 이벤트 바인딩 (렌더마다 재연결) -----
+    function bindEvents() {
+      const start = document.getElementById('btn-start');
+      if (start) start.onclick = () => go('names');
+
+      const back = document.getElementById('btn-back');
+      if (back) back.onclick = () => go('landing');
+
+      const home = document.getElementById('btn-home');
+      if (home) home.onclick = () => go('landing');
+
+      // 듀얼 패드 설정 (좌우 동시) — 키커=드래그 / 키퍼=구역 탭
+      if (gameState.screen === 'play') {
+        resolving = false;
+        ['p1', 'p2'].forEach((pl) => {
+          const el = document.getElementById('pad-' + pl);
+          if (!el) return;
+          if (el.dataset.role === 'kicker') setupPad(pl);
+          else setupKeeper(pl);
+        });
+      }
+
+      const play = document.getElementById('btn-play');
+      if (play) play.onclick = () => {
+        const p1 = document.getElementById('in-p1').value.trim();
+        const p2 = document.getElementById('in-p2').value.trim();
+        gameState.p1Name = p1 || 'P1';   // 빈칸이면 기본값
+        gameState.p2Name = p2 || 'P2';
+        // 경기 전체 초기화 (다시 하기 대비)
+        gameState.round = 1;
+        gameState.p1Score = 0;
+        gameState.p2Score = 0;
+        gameState.history = [];
+        gameState.suddenDeath = false;
+        gameState.kickerThisRound = 'p1';
+        gameState.playStage = 'duel';
+        duelChoice = { p1: null, p2: null };
+        go('play');
+      };
+    }
+
+    // ===== 패드 슬링샷 드래그 =====
+    // 키커: 공을 당긴 반대 방향으로 슛 / 키퍼: 당긴 방향으로 다이브
+    // 공통: 당긴 거리 = 파워 (게이지). 손 떼면 확정.
+    function setupPad(player) {
+      const padEl    = document.getElementById('pad-' + player);
+      const anchorEl = document.getElementById('anchor-' + player);
+      const arrowEl  = document.getElementById('arrow-' + player);
+      const gaugeEl  = document.getElementById('gauge-' + player);
+      const hintEl   = document.getElementById('hint-' + player);
+      const readyEl  = document.getElementById('ready-' + player);
+      if (!padEl) return;
+      const role = padEl.dataset.role; // 'kicker' | 'keeper'
+
+      let ax = 0, ay = 0, maxDrag = 1, dragging = false;
+
+      function placeAnchor() {
+        const r = padEl.getBoundingClientRect();
+        ax = r.width / 2;
+        ay = r.height * 0.78;              // 앵커: 하단 중앙
+        maxDrag = Math.min(r.width, r.height) * 0.42;
+        anchorEl.style.left = ax + 'px';
+        anchorEl.style.top = ay + 'px';
+      }
+      placeAnchor();
+
+      function localPos(e) {
+        const r = padEl.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+      }
+
+      function onDown(e) {
+        if (duelChoice[player]) return;   // 이미 확정
+        dragging = true;
+        padEl.setPointerCapture(e.pointerId);
+        hintEl.style.opacity = '0';
+        onMove(e);
+      }
+
+      function onMove(e) {
+        if (!dragging) return;
+        const p = localPos(e);
+        let dx = p.x - ax, dy = p.y - ay;     // 당김 벡터
+        let mag = Math.hypot(dx, dy);
+        if (mag > maxDrag) { dx *= maxDrag / mag; dy *= maxDrag / mag; mag = maxDrag; }
+        const power = mag / maxDrag;
+        // 슛 = 당김 반대 / 다이브 = 당김 방향
+        const aimX = role === 'kicker' ? -dx : dx;
+        const aimY = role === 'kicker' ? -dy : dy;
+        // 화살표: 앵커에서 조준 방향
+        arrowEl.setAttribute('x1', ax);
+        arrowEl.setAttribute('y1', ay);
+        arrowEl.setAttribute('x2', ax + aimX);
+        arrowEl.setAttribute('y2', ay + aimY);
+        arrowEl.setAttribute('opacity', '0.9');
+        anchorEl.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        gaugeEl.style.width = Math.round(power * 100) + '%';
+      }
+
+      function onUp(e) {
+        if (!dragging) return;
+        dragging = false;
+        const p = localPos(e);
+        let dx = p.x - ax, dy = p.y - ay;
+        let mag = Math.hypot(dx, dy);
+        if (mag > maxDrag) { dx *= maxDrag / mag; dy *= maxDrag / mag; mag = maxDrag; }
+        const power = mag / maxDrag;
+        const aimX = role === 'kicker' ? -dx : dx;
+        const aimY = role === 'kicker' ? -dy : dy;
+        // 정규화 방향 → 골대 좌표 (x:-1좌~1우, y:0바닥~1상단)
+        const norm = Math.max(mag, 1);
+        const gx = Math.max(-1, Math.min(1, (aimX / norm) * 1.3));
+        const gy = Math.max(0, Math.min(1, (-aimY / norm)));   // 위로 갈수록 1
+        duelChoice[player] = { x: gx, y: gy, power };
+        // 확정 표시 — 앵커 제자리, 화살표 유지(흐리게), READY
+        anchorEl.style.transform = 'translate(-50%, -50%)';
+        arrowEl.setAttribute('opacity', '0.35');
+        readyEl.style.display = 'block';
+        // 둘 다 확정되면 잠시 후 연출 + 판정
+        if (duelChoice.p1 && duelChoice.p2) {
+          setTimeout(() => {
+            if (gameState.screen === 'play') resolveDuel();
+          }, 350);
+        }
+      }
+
+      padEl.onpointerdown = onDown;
+      padEl.onpointermove = onMove;
+      padEl.onpointerup = onUp;
+      padEl.onpointercancel = onUp;
+    }
+
+    // ===== 키퍼 9구역 선택 =====
+    // 골대 위 3×3 칸 중 하나를 탭 → 글러브가 그 구역으로. 손맛=즉시 확정.
+    function setupKeeper(player) {
+      const padEl  = document.getElementById('pad-' + player);
+      const glove  = document.getElementById('anchor-' + player);
+      const hintEl = document.getElementById('hint-' + player);
+      const readyEl = document.getElementById('ready-' + player);
+      if (!padEl) return;
+      const cells = padEl.querySelectorAll('.zone-cell');
+
+      cells.forEach((cell) => {
+        cell.onpointerdown = () => {
+          if (duelChoice[player]) return;  // 이미 확정
+          const x = parseFloat(cell.dataset.zx);
+          const y = parseFloat(cell.dataset.zy);
+          duelChoice[player] = { x, y, zone: cell.dataset.zone };
+
+          cells.forEach((c) => c.classList.remove('sel'));
+          cell.classList.add('sel');
+
+          // 글러브를 선택 구역 중앙으로 이동 + 표시
+          const cr = cell.getBoundingClientRect();
+          const pr = padEl.getBoundingClientRect();
+          glove.style.left = (cr.left - pr.left + cr.width / 2) + 'px';
+          glove.style.top  = (cr.top - pr.top + cr.height / 2) + 'px';
+          glove.style.opacity = '1';
+
+          hintEl.style.opacity = '0';
+          readyEl.style.display = 'block';
+
+          if (duelChoice.p1 && duelChoice.p2) {
+            setTimeout(() => {
+              if (gameState.screen === 'play') resolveDuel();
+            }, 350);
+          }
+        };
+      });
+    }
+
+    // ----- HTML 이스케이프 (이름 입력값 안전 처리) -----
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[c]));
+    }
+
+    render();
+  </script>
+</body>
+</html>

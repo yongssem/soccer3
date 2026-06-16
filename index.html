@@ -156,20 +156,32 @@
       text-align: center; pointer-events: none; width: 90%;
     }
 
-    /* 시점 장면 (배경 SVG는 영역 채움) */
-    .scene { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-    /* 배우(emoji) — 절대배치, 변형 애니메이션 대상 */
+    /* 시점 장면 (배경 이미지는 영역 채움) */
+    .scene { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+    /* 배우(이미지) — 절대배치, 변형 애니메이션 대상 */
     .actor { position: absolute; pointer-events: none; line-height: 1; will-change: transform; }
-    .figure-kicker { font-size: 40px; filter: drop-shadow(0 4px 5px rgba(0,0,0,0.45)); }
-    .figure-kicker-far { font-size: 22px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45)); opacity: 0.9; }
-    .ball-fly { position: absolute; font-size: 30px; pointer-events: none; will-change: transform; }
+    .figure-kicker { width: 120px; filter: drop-shadow(0 6px 7px rgba(0,0,0,0.45)); }
+    .figure-keeper { width: 104px; filter: drop-shadow(0 6px 8px rgba(0,0,0,0.5)); will-change: transform; }
+    .figure-kicker-far { width: 52px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45)); opacity: 0.95; }
+    .ball-fly { position: absolute; width: 34px; pointer-events: none; will-change: transform; }
 
     /* ===== 키퍼 골대 + 9구역 선택 ===== */
     .goal-frame {
-      position: absolute; left: 15%; right: 15%; top: 14%; height: 42%;
-      border: 4px solid transparent;
-      border-image: linear-gradient(90deg, #FFD6E0 0%, #FFC633 50%, #C8E6F5 100%) 1;
-      pointer-events: none;
+      position: absolute; pointer-events: none;
+      left: 15%; right: 15%; top: 14%; height: 42%;
+    }
+    .gf-kicker { left: 27%; right: 27%; top: 33%; height: 21%; }  /* 멀리 보이는 골대(원근) */
+    .gf-keeper { left: 9%;  right: 9%;  top: 9%;  height: 40%; }  /* 키퍼 코앞 큰 골대 */
+    .goal-net  {
+      position: absolute; inset: 0; pointer-events: none;
+      /* 다이아몬드 그물망 + 골대 안쪽 그늘 */
+      background:
+        repeating-linear-gradient(45deg,  rgba(255,255,255,0.45) 0 1.5px, transparent 1.5px 13px),
+        repeating-linear-gradient(-45deg, rgba(255,255,255,0.45) 0 1.5px, transparent 1.5px 13px),
+        linear-gradient(rgba(4,20,12,0.45), rgba(4,20,12,0.45));
+      border: 5px solid #ffffff;        /* 기둥 + 크로스바 */
+      border-bottom: none;              /* 골대 입구(바닥) 열림 */
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25), 0 3px 7px rgba(0,0,0,0.4);
     }
     .zone-grid {
       position: absolute; inset: 0;
@@ -190,6 +202,14 @@
       border-color: var(--trophy);
       box-shadow: inset 0 0 0 2px var(--trophy);
     }
+
+    /* ===== 키커 타이밍 스윕 라인 ===== */
+    .sweep {
+      position: absolute; pointer-events: none; opacity: 0; z-index: 5;
+      border-radius: 2px; transition: opacity 0.15s ease;
+    }
+    .sweep-v { width: 3px; box-shadow: 0 0 8px currentColor; }
+    .sweep-h { height: 3px; box-shadow: 0 0 8px currentColor; }
 
     /* 결과 오버레이 */
     .result-overlay {
@@ -278,7 +298,7 @@
       return `
         <main data-screen class="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <div class="pop-in">
-            <div class="float-ball text-7xl mb-4 drop-shadow-lg" aria-hidden="true">⚽</div>
+            <img src="public/ball.png" alt="" class="float-ball mx-auto mb-4 drop-shadow-lg" style="width:96px;" />
             <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight drop-shadow-md">
               무무월드컵 <span style="color: var(--trophy);">3</span>
             </h1>
@@ -387,7 +407,10 @@
       let out = '';
       for (let i = 0; i < TOTAL_ROUNDS; i++) {
         const r = kicks[i];
-        const sym = !r ? '·' : r.result === 'goal' ? '⚽' : '🧤';
+        const sym = !r ? '·'
+          : r.result === 'goal' ? '⚽'
+          : r.result === 'save' ? '🧤'
+          : '❌';   // post / miss = 노골
         const op = r ? '' : 'opacity-30';
         out += `<span class="${op}">${sym}</span>`;
       }
@@ -468,11 +491,16 @@
       return out;
     }
 
-    // 한 쪽 패드 — 키커(드래그) / 키퍼(9구역 탭) 분기
+    // 골대 + 그물망 — goal-frame div를 꽉 채움 (CSS 다이아몬드 메시)
+    function goalNet() {
+      return `<div class="goal-net"></div>`;
+    }
+
+    // 한 쪽 패드 — 키커(타이밍 슛) / 키퍼(타이밍 막기) 분기
     function pad(player, role) {
       const isKicker = role === 'kicker';
       const accent = colorOf(player);
-      const roleLabel = isKicker ? '키커 — 공을 당겨 차기' : '골키퍼 — 막을 구역을 탭!';
+      const roleLabel = isKicker ? '↔ 좌우 타이밍 탭!' : '🧤 글러브 좌우 타이밍 탭!';
 
       const hint = `
         <div class="pad-hint" id="hint-${player}">
@@ -482,30 +510,29 @@
       const ready = `<div class="ready-badge" id="ready-${player}" style="display:none;">READY ✓</div>`;
 
       if (isKicker) {
-        // 키커: 골대(위) + 가까운 키커 + 슬링샷 드래그
+        // 키커: 스타디움 배경 + 골대(위) + 가까운 키커 + 타이밍 스윕
         return `
           <div class="pad" id="pad-${player}" data-player="${player}" data-role="${role}">
-            ${sceneKicker(player)}
-            <div class="actor figure-kicker" id="kicker-${player}" style="left:62%; bottom:14%;">🏃</div>
-            <svg><line id="arrow-${player}" x1="0" y1="0" x2="0" y2="0"
-                       stroke="${accent}" stroke-width="5" stroke-linecap="round" opacity="0" /></svg>
-            <div class="anchor" id="anchor-${player}">⚽</div>
+            <img class="scene" src="public/pitch-kicker.jpg" alt="" />
+            <div class="goal-frame gf-kicker" id="goalframe-${player}">${goalNet()}</div>
+            <img class="actor figure-kicker" id="kicker-${player}" src="public/kicker.png" alt="" style="left:64%; bottom:6%;" />
+            <div class="sweep sweep-v" id="sweepv-${player}" style="background:${accent}; color:${accent};"></div>
+            <div class="sweep sweep-h" id="sweeph-${player}" style="background:${accent}; color:${accent};"></div>
+            <img class="anchor" id="anchor-${player}" src="public/ball.png" alt="" style="width:38px;" />
             ${hint}
             ${ready}
-            <div class="pad-gauge"><i id="gauge-${player}" style="background:${accent};"></i></div>
           </div>`;
       }
 
-      // 키퍼: 멀리 키커 + 골대 프레임 + 9구역 + 날아올 공 + 글러브
+      // 키퍼: 스타디움 배경 + 멀리 키커 + 골대 프레임 + 날아올 공 + 글러브 조준 + 골키퍼 다이빙
       return `
         <div class="pad" id="pad-${player}" data-player="${player}" data-role="${role}">
-          ${sceneKeeper(player)}
-          <div class="actor figure-kicker-far" id="farkicker-${player}" style="left:50%; top:4%; transform:translateX(-50%);">🏃</div>
-          <div class="ball-fly" id="farball-${player}" style="left:50%; top:9%; transform:translate(-50%,-50%); opacity:0;">⚽</div>
-          <div class="goal-frame" id="goalframe-${player}">
-            <div class="zone-grid">${zoneCells()}</div>
-          </div>
-          <div class="anchor" id="anchor-${player}" style="font-size:50px; opacity:0;">🧤</div>
+          <img class="scene" src="public/pitch-keeper.jpg" alt="" />
+          <img class="actor figure-kicker-far" id="farkicker-${player}" src="public/kicker.png" alt="" style="left:50%; top:4%; transform:translateX(-50%);" />
+          <img class="ball-fly" id="farball-${player}" src="public/ball.png" alt="" style="left:50%; top:9%; transform:translate(-50%,-50%); opacity:0;" />
+          <div class="goal-frame gf-keeper" id="goalframe-${player}">${goalNet()}</div>
+          <img class="anchor" id="anchor-${player}" src="public/glove.png" alt="" style="width:54px; opacity:0;" />
+          <img class="actor figure-keeper" id="gk-${player}" src="public/keeper.png" alt="" style="left:50%; top:58%; transform:translate(-50%,-50%); opacity:0;" />
           ${hint}
           ${ready}
         </div>`;
@@ -513,21 +540,36 @@
 
     // ----- 듀얼 판정 + 연출 -----
     let resolving = false;
+    let sweepRAF = null;    // 키커 타이밍 스윕 애니메이션 프레임
+    let keeperRAF = null;   // 키퍼 글러브 왕복 애니메이션 프레임
 
     function resolveDuel() {
       if (resolving) return;
       resolving = true;
       const k = kickerKey(), g = keeperKey();
-      const shot = duelChoice[k];   // {x,y,power}  슛 목표
-      const dive = duelChoice[g];   // {x,y,zone}   키퍼가 고른 구역
-      const reach = 0.46 - shot.power * 0.16;       // 강슛일수록 막을 범위가 좁아짐
-      const dist = Math.hypot(shot.x - dive.x, shot.y - dive.y);
-      const isGoal = dist > reach;
+      const shot = duelChoice[k];   // {x,y}  슛 목표 (x:-1.3좌~1.3우, y:0바닥~1.3위)
+      const dive = duelChoice[g];   // {x,y}  키퍼 글러브 위치 (타이밍 2단계)
+
+      // 1) 키퍼와 무관한 판정 먼저 — 골대 밖(miss) / 기둥·크로스바(post)
+      const ax = Math.abs(shot.x);
+      let outcome;  // 'goal' | 'save' | 'post' | 'miss'
+      if (ax > 1.06 || shot.y > 1.06) {
+        outcome = 'miss';   // 골대 밖으로 완전히 빗나감
+      } else if (ax > 0.94 || shot.y > 0.94) {
+        outcome = 'post';   // 골대 기둥/크로스바 맞고 노골
+      } else {
+        // 2) 골대 안 → 키퍼 글러브 거리로 골/세이브
+        const reach = 0.32;                         // 글러브 닿는 범위 (좁게 = 정확히 맞춰야 막음)
+        const dist = Math.hypot(shot.x - dive.x, shot.y - dive.y);
+        outcome = dist > reach ? 'goal' : 'save';
+      }
+
+      const isGoal = outcome === 'goal';
       if (isGoal) gameState[k + 'Score'] += 1;
-      gameState.history.push({ round: gameState.round, kicker: k, shot, dive, result: isGoal ? 'goal' : 'save' });
-      animateDuel(k, g, shot, dive, isGoal).then(() => {
+      gameState.history.push({ round: gameState.round, kicker: k, shot, dive, result: outcome });
+      animateDuel(k, g, shot, dive, outcome).then(() => {
         resolving = false;
-        showResult(isGoal, k, shot);
+        showResult(outcome, k, shot);
       });
     }
 
@@ -550,7 +592,7 @@
     }
 
     // 공/키퍼 연출 (Web Animations API). k=키커쪽 player, g=키퍼쪽 player
-    function animateDuel(k, g, shot, dive, isGoal) {
+    function animateDuel(k, g, shot, dive, outcome) {
       const ease = 'cubic-bezier(0.4, 0, 0.2, 1)';
       // 키커 쪽: 공이 골대로 날아감 + 키커 차는 모션
       const padK = document.getElementById('pad-' + k);
@@ -558,9 +600,10 @@
       const kicker = document.getElementById('kicker-' + k);
       if (padK && ball) {
         const r = padK.getBoundingClientRect();
-        const fromY = r.height * 0.78;
-        const tx = shot.x * r.width * 0.22;          // 골대 가로
-        const ty = (r.height * 0.30 - shot.y * r.height * 0.05) - fromY; // 골대 위쪽
+        const startX = r.width * 0.5, startY = r.height * 0.78;  // 공 시작점(하단 중앙)
+        const tp = goalFramePoint(padK, shot.x, shot.y);          // 실제 골대 안 도착 지점
+        const tx = tp.px - startX;
+        const ty = tp.py - startY;
         ball.animate(
           arcFrames(tx, ty, { arc: Math.abs(ty) * 0.22 + 24, s0: 1, s1: 0.55, spin: 540 }),
           { duration: 680, easing: 'linear', fill: 'forwards' });
@@ -571,19 +614,31 @@
          { transform: 'translateX(4px) rotate(6deg)' }],
         { duration: 450, easing: ease, fill: 'forwards' });
 
-      // 키퍼 쪽: 공이 골대 안 슛 지점으로 날아오고, 글러브는 선택 구역에서 반응
+      // 키퍼 쪽: 공이 골대로 날아오고, 골키퍼가 자기가 고른 위치로 몸을 날려 다이빙
       const padG = document.getElementById('pad-' + g);
       const glove = document.getElementById('anchor-' + g);
+      const gkEl  = document.getElementById('gk-' + g);
       const farball = document.getElementById('farball-' + g);
-      if (padG && glove) {
-        glove.animate(
-          [{ transform: 'translate(-50%,-50%) scale(1)' },
-           { transform: 'translate(-50%,-50%) scale(1.18)', offset: 0.5 },
-           { transform: 'translate(-50%,-50%) scale(1.05)' }],
-          { duration: 420, easing: ease, fill: 'forwards', delay: 120 });
+      if (padG) {
+        const r = padG.getBoundingClientRect();
+        // 조준용 글러브는 숨기고, 골키퍼 본체가 그 자리로 다이빙
+        if (glove) glove.style.opacity = '0';
+        if (gkEl) {
+          // 막았으면 공 위치로 손을 뻗어 잡고, 놓쳤으면 자기가 고른 헛다이빙 위치로
+          const target = (outcome === 'save') ? shot : dive;
+          const tp = goalFramePoint(padG, target.x, target.y);
+          const startX = r.width * 0.5, startY = r.height * 0.60;  // 골라인 앞 대기 위치
+          const dx = tp.px - startX, dy = tp.py - startY;
+          const lean = target.x * 68;   // 좌우로 기울며 날아가는 다이빙 각
+          gkEl.style.opacity = '1';
+          gkEl.animate(
+            [{ transform: 'translate(-50%,-50%) rotate(0deg) scale(1)' },
+             { transform: `translate(calc(-50% + ${(dx * 0.6).toFixed(1)}px), calc(-50% + ${(dy * 0.6).toFixed(1)}px)) rotate(${(lean * 0.6).toFixed(0)}deg) scale(1.06)`, offset: 0.55 },
+             { transform: `translate(calc(-50% + ${dx.toFixed(1)}px), calc(-50% + ${dy.toFixed(1)}px)) rotate(${lean.toFixed(0)}deg) scale(1.12)` }],
+            { duration: 540, easing: ease, fill: 'forwards', delay: 110 });
+        }
         if (farball) {
-          const r = padG.getBoundingClientRect();
-          const sp = goalFramePoint(padG, shot.x, shot.y);   // 슛이 향한 골대 안 지점
+          const sp = goalFramePoint(padG, shot.x, shot.y);   // 슛이 향한 지점
           const sx = sp.px - r.width * 0.5;
           const sy = sp.py - r.height * 0.09;
           farball.style.opacity = '1';
@@ -604,22 +659,27 @@
       return { px, py };
     }
 
-    // 결과 오버레이 (GOAL/SAVE + 폭죽 + 다음 버튼)
-    function showResult(isGoal, k, shot) {
+    // 결과 오버레이 (GOAL/SAVE/POST/MISS + 폭죽 + 다음 버튼)
+    function showResult(outcome, k, shot) {
       const isLast = gameState.round >= TOTAL_ROUNDS && gameState.kickerThisRound === 'p2';
+      // 결과별 연출 정보
+      const view = {
+        goal: { emoji: '🥅', title: 'GOAL!',  color: 'var(--trophy)', desc: `${esc(nameOf(k))} 득점! ⚽` },
+        save: { emoji: '🧤', title: 'SAVE!',  color: '#ffffff',       desc: '골키퍼가 막아냈다!' },
+        post: { emoji: '😫', title: 'POST!',  color: '#C8E6F5',       desc: '골대를 맞고 튕겨나갔다!' },
+        miss: { emoji: '💨', title: 'MISS!',  color: '#94A3B8',       desc: '골대 밖으로 빗나갔다!' },
+      }[outcome];
+
       const ov = document.createElement('div');
       ov.className = 'result-overlay';
       ov.setAttribute('data-screen', '');
       ov.innerHTML = `
         <div class="result-pop text-center px-6">
-          <div class="text-7xl mb-2">${isGoal ? '🥅' : '🧤'}</div>
-          <h2 class="text-6xl font-black mb-3 drop-shadow-lg"
-              style="color: ${isGoal ? 'var(--trophy)' : '#fff'};">
-            ${isGoal ? 'GOAL!' : 'SAVE!'}
+          <div class="text-7xl mb-2">${view.emoji}</div>
+          <h2 class="text-6xl font-black mb-3 drop-shadow-lg" style="color: ${view.color};">
+            ${view.title}
           </h2>
-          <p class="text-base mb-6" style="color: var(--ink-muted);">
-            ${isGoal ? `${esc(nameOf(k))} 득점!  ⚡파워 ${Math.round(shot.power * 100)}%` : '골키퍼가 막아냈다!'}
-          </p>
+          <p class="text-base mb-6" style="color: var(--ink-muted);">${view.desc}</p>
           <button id="ov-next"
             class="btn-press px-10 py-4 rounded-2xl font-bold text-lg shadow-xl"
             style="background: var(--trophy); color: #1a1a1a;">
@@ -628,7 +688,7 @@
         </div>`;
       app.appendChild(ov);
       document.getElementById('ov-next').onclick = () => { ov.remove(); advanceTurn(); };
-      if (isGoal && window.confetti) {
+      if (outcome === 'goal' && window.confetti) {
         window.confetti({ particleCount: 90, spread: 75, origin: { y: 0.4 },
           colors: ['#FFC633', '#FFD6E0', '#C8E6F5', '#3B82F6'] });
       }
@@ -695,13 +755,13 @@
       const home = document.getElementById('btn-home');
       if (home) home.onclick = () => go('landing');
 
-      // 듀얼 패드 설정 (좌우 동시) — 키커=드래그 / 키퍼=구역 탭
+      // 듀얼 패드 설정 (좌우 동시) — 키커=타이밍 2단계 / 키퍼=구역 탭
       if (gameState.screen === 'play') {
         resolving = false;
         ['p1', 'p2'].forEach((pl) => {
           const el = document.getElementById('pad-' + pl);
           if (!el) return;
-          if (el.dataset.role === 'kicker') setupPad(pl);
+          if (el.dataset.role === 'kicker') setupKicker(pl);
           else setupKeeper(pl);
         });
       }
@@ -725,134 +785,116 @@
       };
     }
 
-    // ===== 패드 슬링샷 드래그 =====
-    // 키커: 공을 당긴 반대 방향으로 슛 / 키퍼: 당긴 방향으로 다이브
-    // 공통: 당긴 거리 = 파워 (게이지). 손 떼면 확정.
-    function setupPad(player) {
-      const padEl    = document.getElementById('pad-' + player);
-      const anchorEl = document.getElementById('anchor-' + player);
-      const arrowEl  = document.getElementById('arrow-' + player);
-      const gaugeEl  = document.getElementById('gauge-' + player);
-      const hintEl   = document.getElementById('hint-' + player);
-      const readyEl  = document.getElementById('ready-' + player);
-      if (!padEl) return;
-      const role = padEl.dataset.role; // 'kicker' | 'keeper'
-
-      let ax = 0, ay = 0, maxDrag = 1, dragging = false;
-
-      function placeAnchor() {
-        const r = padEl.getBoundingClientRect();
-        ax = r.width / 2;
-        ay = r.height * 0.78;              // 앵커: 하단 중앙
-        maxDrag = Math.min(r.width, r.height) * 0.42;
-        anchorEl.style.left = ax + 'px';
-        anchorEl.style.top = ay + 'px';
-      }
-      placeAnchor();
-
-      function localPos(e) {
-        const r = padEl.getBoundingClientRect();
-        return { x: e.clientX - r.left, y: e.clientY - r.top };
-      }
-
-      function onDown(e) {
-        if (duelChoice[player]) return;   // 이미 확정
-        dragging = true;
-        padEl.setPointerCapture(e.pointerId);
-        hintEl.style.opacity = '0';
-        onMove(e);
-      }
-
-      function onMove(e) {
-        if (!dragging) return;
-        const p = localPos(e);
-        let dx = p.x - ax, dy = p.y - ay;     // 당김 벡터
-        let mag = Math.hypot(dx, dy);
-        if (mag > maxDrag) { dx *= maxDrag / mag; dy *= maxDrag / mag; mag = maxDrag; }
-        const power = mag / maxDrag;
-        // 슛 = 당김 반대 / 다이브 = 당김 방향
-        const aimX = role === 'kicker' ? -dx : dx;
-        const aimY = role === 'kicker' ? -dy : dy;
-        // 화살표: 앵커에서 조준 방향
-        arrowEl.setAttribute('x1', ax);
-        arrowEl.setAttribute('y1', ay);
-        arrowEl.setAttribute('x2', ax + aimX);
-        arrowEl.setAttribute('y2', ay + aimY);
-        arrowEl.setAttribute('opacity', '0.9');
-        anchorEl.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-        gaugeEl.style.width = Math.round(power * 100) + '%';
-      }
-
-      function onUp(e) {
-        if (!dragging) return;
-        dragging = false;
-        const p = localPos(e);
-        let dx = p.x - ax, dy = p.y - ay;
-        let mag = Math.hypot(dx, dy);
-        if (mag > maxDrag) { dx *= maxDrag / mag; dy *= maxDrag / mag; mag = maxDrag; }
-        const power = mag / maxDrag;
-        const aimX = role === 'kicker' ? -dx : dx;
-        const aimY = role === 'kicker' ? -dy : dy;
-        // 정규화 방향 → 골대 좌표 (x:-1좌~1우, y:0바닥~1상단)
-        const norm = Math.max(mag, 1);
-        const gx = Math.max(-1, Math.min(1, (aimX / norm) * 1.3));
-        const gy = Math.max(0, Math.min(1, (-aimY / norm)));   // 위로 갈수록 1
-        duelChoice[player] = { x: gx, y: gy, power };
-        // 확정 표시 — 앵커 제자리, 화살표 유지(흐리게), READY
-        anchorEl.style.transform = 'translate(-50%, -50%)';
-        arrowEl.setAttribute('opacity', '0.35');
-        readyEl.style.display = 'block';
-        // 둘 다 확정되면 잠시 후 연출 + 판정
-        if (duelChoice.p1 && duelChoice.p2) {
-          setTimeout(() => {
-            if (gameState.screen === 'play') resolveDuel();
-          }, 350);
-        }
-      }
-
-      padEl.onpointerdown = onDown;
-      padEl.onpointermove = onMove;
-      padEl.onpointerup = onUp;
-      padEl.onpointercancel = onUp;
-    }
-
-    // ===== 키퍼 9구역 선택 =====
-    // 골대 위 3×3 칸 중 하나를 탭 → 글러브가 그 구역으로. 손맛=즉시 확정.
-    function setupKeeper(player) {
-      const padEl  = document.getElementById('pad-' + player);
-      const glove  = document.getElementById('anchor-' + player);
-      const hintEl = document.getElementById('hint-' + player);
+    // ===== 키커 타이밍 2단계 =====
+    // ① 좌우로 움직이는 세로선 탭 → 가로 위치 / ② 상하로 움직이는 가로선 탭 → 세로 위치
+    function setupKicker(player) {
+      const padEl   = document.getElementById('pad-' + player);
+      const ball    = document.getElementById('anchor-' + player);
+      const vline   = document.getElementById('sweepv-' + player);
+      const hline   = document.getElementById('sweeph-' + player);
+      const hintEl  = document.getElementById('hint-' + player);
       const readyEl = document.getElementById('ready-' + player);
+      const subEl   = hintEl ? hintEl.querySelector('.text-xs') : null;
       if (!padEl) return;
-      const cells = padEl.querySelectorAll('.zone-cell');
+      if (sweepRAF) cancelAnimationFrame(sweepRAF);
 
-      cells.forEach((cell) => {
-        cell.onpointerdown = () => {
-          if (duelChoice[player]) return;  // 이미 확정
-          const x = parseFloat(cell.dataset.zx);
-          const y = parseFloat(cell.dataset.zy);
-          duelChoice[player] = { x, y, zone: cell.dataset.zone };
+      const pr = padEl.getBoundingClientRect();
+      // 공 시작 위치 (하단 중앙)
+      ball.style.left = (pr.width * 0.5) + 'px';
+      ball.style.top  = (pr.height * 0.78) + 'px';
 
-          cells.forEach((c) => c.classList.remove('sel'));
-          cell.classList.add('sel');
+      // 골대 프레임 영역 (패드 기준) — 스윕 범위
+      const gf = document.getElementById('goalframe-' + player).getBoundingClientRect();
+      const gx0 = gf.left - pr.left, gy0 = gf.top - pr.top, gw = gf.width, gh = gf.height;
 
-          // 글러브를 선택 구역 중앙으로 이동 + 표시
-          const cr = cell.getBoundingClientRect();
-          const pr = padEl.getBoundingClientRect();
-          glove.style.left = (cr.left - pr.left + cr.width / 2) + 'px';
-          glove.style.top  = (cr.top - pr.top + cr.height / 2) + 'px';
-          glove.style.opacity = '1';
+      // 스윕 범위를 골대보다 넓게 → 가장자리 타이밍이면 골대 밖/기둥(빗나감) 가능
+      const mx = gw * 0.16, my = gh * 0.18;   // 좌우 / 위쪽 여유 (아래는 땅이라 X)
+      vline.style.top = (gy0 - my) + 'px'; vline.style.height = (gh + my) + 'px'; vline.style.opacity = '0.95';
+      hline.style.left = (gx0 - mx) + 'px'; hline.style.width = (gw + 2 * mx) + 'px'; hline.style.opacity = '0';
 
+      let stage = 'x', lockedX = 0;
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+      const tri = (ts, period) => { const p = (ts % period) / period; return p < 0.5 ? p * 2 : 2 - p * 2; };
+
+      function frame(ts) {
+        if (!document.body.contains(padEl)) return;   // 화면 떠나면 정지
+        if (stage === 'x')      vline.style.left = (gx0 - mx + tri(ts, 1300) * (gw + 2 * mx)) + 'px';
+        else if (stage === 'y') hline.style.top  = (gy0 - my + tri(ts, 1100) * (gh + my)) + 'px';
+        sweepRAF = requestAnimationFrame(frame);
+      }
+      sweepRAF = requestAnimationFrame(frame);
+
+      padEl.onpointerdown = () => {
+        if (duelChoice[player]) return;   // 이미 확정
+        if (stage === 'x') {
+          lockedX = clamp(((parseFloat(vline.style.left) - gx0) / gw) * 2 - 1, -1.3, 1.3);
+          vline.style.opacity = '0.45';   // 가로 확정 (흐리게 고정)
+          hline.style.opacity = '0.95';
+          stage = 'y';
+          if (subEl) subEl.textContent = '↕ 상하 타이밍 탭!';
+        } else {
+          const lockedY = clamp(1 - (parseFloat(hline.style.top) - gy0) / gh, 0, 1.3);
+          if (sweepRAF) cancelAnimationFrame(sweepRAF);
+          hline.style.opacity = '0.45';
+          duelChoice[player] = { x: lockedX, y: lockedY };
           hintEl.style.opacity = '0';
           readyEl.style.display = 'block';
-
           if (duelChoice.p1 && duelChoice.p2) {
-            setTimeout(() => {
-              if (gameState.screen === 'play') resolveDuel();
-            }, 350);
+            setTimeout(() => { if (gameState.screen === 'play') resolveDuel(); }, 350);
           }
-        };
-      });
+        }
+      };
+    }
+
+    // ===== 키퍼 타이밍 2단계 (키커와 대칭) =====
+    // 글러브가 좌우로 왔다리 갔다리 → 탭(가로 확정) → 상하로 왔다리 갔다리 → 탭(높이 확정)
+    function setupKeeper(player) {
+      const padEl   = document.getElementById('pad-' + player);
+      const glove   = document.getElementById('anchor-' + player);
+      const hintEl  = document.getElementById('hint-' + player);
+      const readyEl = document.getElementById('ready-' + player);
+      const subEl   = hintEl ? hintEl.querySelector('.text-xs') : null;
+      if (!padEl) return;
+      if (keeperRAF) cancelAnimationFrame(keeperRAF);
+
+      const pr = padEl.getBoundingClientRect();
+      const gf = document.getElementById('goalframe-' + player).getBoundingClientRect();
+      const gx0 = gf.left - pr.left, gy0 = gf.top - pr.top, gw = gf.width, gh = gf.height;
+
+      // 글러브 보이기 + 골대 중앙에서 시작
+      glove.style.opacity = '1';
+      glove.style.left = (gx0 + gw / 2) + 'px';
+      glove.style.top  = (gy0 + gh / 2) + 'px';
+
+      let stage = 'x', lockedX = 0;
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+      const tri = (ts, period) => { const p = (ts % period) / period; return p < 0.5 ? p * 2 : 2 - p * 2; };
+
+      function frame(ts) {
+        if (!document.body.contains(padEl)) return;   // 화면 떠나면 정지
+        if (stage === 'x')      glove.style.left = (gx0 + tri(ts, 900) * gw) + 'px';   // 좌우 왕복
+        else if (stage === 'y') glove.style.top  = (gy0 + tri(ts, 820) * gh) + 'px';   // 상하 왕복
+        keeperRAF = requestAnimationFrame(frame);
+      }
+      keeperRAF = requestAnimationFrame(frame);
+
+      padEl.onpointerdown = () => {
+        if (duelChoice[player]) return;   // 이미 확정
+        if (stage === 'x') {
+          lockedX = clamp(((parseFloat(glove.style.left) - gx0) / gw) * 2 - 1, -1, 1);
+          stage = 'y';
+          if (subEl) subEl.textContent = '↕ 높이 타이밍 탭!';
+        } else {
+          const lockedY = clamp(1 - (parseFloat(glove.style.top) - gy0) / gh, 0, 1);
+          if (keeperRAF) cancelAnimationFrame(keeperRAF);
+          duelChoice[player] = { x: lockedX, y: lockedY };
+          hintEl.style.opacity = '0';
+          readyEl.style.display = 'block';
+          if (duelChoice.p1 && duelChoice.p2) {
+            setTimeout(() => { if (gameState.screen === 'play') resolveDuel(); }, 350);
+          }
+        }
+      };
     }
 
     // ----- HTML 이스케이프 (이름 입력값 안전 처리) -----

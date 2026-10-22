@@ -1,0 +1,10 @@
+tests/
+.github/
+CLAUDE.md
+public/pitch-kicker.jpg
+public/pitch-keeper.jpg
+public/kicker.png
+public/keeper.png
+public/glove.png
+public/ball.png
+public/vendor/tailwind-3.4.17.js

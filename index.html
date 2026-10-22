@@ -4,31 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>⚽ 무무월드컵 3 — 패널티킥 슛아웃</title>
-  <meta name="description" content="우리 반 키커왕은 누구? 패스 앤 플레이 패널티킥 슛아웃 게임." />
+  <meta name="description" content="우리 반 키커왕은 누구? 두 시점으로 즐기는 3D 패널티킥 슛아웃 게임." />
   <meta property="og:title" content="⚽ 무무월드컵 3" />
   <meta property="og:description" content="우리 반 키커왕은 누구? 패널티킥 슛아웃" />
   <meta property="og:type" content="website" />
 
+  <meta name="theme-color" content="#102631" />
+  <meta name="app-version" content="mumu3-20261022-r1" />
+  <meta property="og:url" content="https://soccer3-plum.vercel.app/" />
+  <meta property="og:image" content="https://soccer3-plum.vercel.app/public/og-stadium-v1.jpg" />
+  <meta property="og:image:width" content="1200" /><meta property="og:image:height" content="675" />
+  <link rel="canonical" href="https://soccer3-plum.vercel.app/" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="public/icon-192.png" /><link rel="apple-touch-icon" href="public/icon-192.png" />
+  <link rel="preload" as="image" href="public/hero-stadium-v1.webp" />
   <!-- Pretendard CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-  <!-- Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- canvas-confetti (GOAL 폭죽) -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Pretendard', 'sans-serif'] },
-          colors: {
-            trophy: '#FFC633',
-            p1: '#3B82F6',
-            p2: '#EF4444',
-          },
-        },
-      },
-    };
-  </script>
+  <link rel="stylesheet" href="public/app.min.css" />
+  <script src="public/vendor/confetti-1.9.3.min.js"></script>
 
   <style>
     /* ===== 무무월드컵 스타디움 디자인 토큰 ===== */
@@ -239,14 +232,152 @@
       0%,100% { transform: translateX(0); }
       25% { transform: translateX(-2px); } 75% { transform: translateX(2px); }
     }
+    /* 3D 에디션: 공통 UI와 캔버스 레이아웃 */
+    body { background:#101e28; }
+    #app { min-height:100svh; background:#101e28; }
+    #app.pitch-stripes::before { display:none; }
+    .landing3d { width:min(1240px,100%); margin:auto; padding:28px 40px 10px; }
+    .brand3d { display:flex; align-items:center; gap:9px; font-size:18px; font-weight:900; letter-spacing:-.6px; }
+    .brand3d b { color:#ffd354; }
+    .brand-ball { font-size:25px; }
+    .edition3d { margin-left:10px; padding:5px 9px; border:1px solid #43515a; border-radius:5px; font-size:9px; letter-spacing:1.5px; color:#a8bbc6; }
+    .hero3d { display:grid; grid-template-columns:.85fr 1.15fr; align-items:center; gap:42px; padding:54px 0 38px; }
+    .eyebrow3d { color:#a8c8bb; font-size:10px; font-weight:800; letter-spacing:2.4px; }
+    .hero-copy h1 { font-size:clamp(42px,5.4vw,72px); line-height:1.16; margin:23px 0; font-weight:900; letter-spacing:-3.5px; }
+    .hero-copy h1 em { color:#ffd354; font-style:normal; }
+    .hero-copy p { color:#b4c3ca; line-height:1.9; font-size:14px; }
+    .start3d { display:flex; align-items:center; justify-content:space-between; width:230px; padding:18px 23px; margin-top:30px; background:#ffd354; color:#14252a; border:0; border-radius:10px; font-weight:900; font-size:17px; cursor:pointer; }
+    .start3d span { font-size:24px; line-height:1; }
+    .hero-meta { display:flex; flex-wrap:wrap; gap:15px; margin-top:20px; font-size:10px; color:#81949f; }
+    .hero-meta span:first-child { color:#a4c9ae; }
+    .hero-stadium { position:relative; height:440px; border-radius:120px 14px 14px 14px; overflow:hidden; border:1px solid #577278; background:#abcbd4; box-shadow:0 30px 60px #0004; }
+    #preview3d { width:100%; height:100%; display:block; }
+    .live3d { position:absolute; top:22px; right:22px; background:#14252ccf; border:1px solid #ffffff30; border-radius:20px; padding:8px 12px; font-size:8px; font-weight:800; letter-spacing:1.5px; display:flex; gap:8px; align-items:center; }
+    .live3d i { width:5px; height:5px; border-radius:50%; background:#bcff91; }
+    .stadium-caption { position:absolute; bottom:0; left:0; right:0; padding:52px 24px 24px; background:linear-gradient(transparent,#14252cef); display:flex; flex-direction:column; gap:5px; }
+    .stadium-caption b { font-size:17px; }.stadium-caption span { font-size:11px; color:#b0c7cb; }
+    .how3d { display:flex; gap:40px; border-top:1px solid #31404a; padding:23px 0; color:#a6b7bf; font-size:12px; }
+    .how3d b { color:#ffd354; font-size:10px; margin-right:12px; }
+    .duel3d { width:100%; max-width:1500px; margin:auto; display:flex; gap:14px; padding:0 18px; }
+    .player-view { flex:1; min-width:0; border:1px solid #33444c; border-radius:13px; overflow:hidden; background:#182b35; }
+    .view-heading { padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .view-heading>div { min-width:0; display:flex; align-items:center; gap:9px; }
+    .view-heading b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
+    .view-heading i { background:var(--player-color); width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+    .view-heading>span { font-size:9px; letter-spacing:1px; color:#a2b9c3; white-space:nowrap; }
+    .pad { height:clamp(300px,calc(100svh - 290px),680px); cursor:crosshair; outline-offset:-3px; }
+    .pad:focus-visible { outline:3px solid #ffd354; }
+    .arena-canvas { position:absolute; inset:0; display:block; width:100%; height:100%; }
+    .goal-frame { border:0; background:transparent; }
+    .camera-tag { position:absolute; top:12px; left:12px; padding:5px 8px; background:#122431aa; border:1px solid #fff3; border-radius:4px; font-size:8px; letter-spacing:1.3px; pointer-events:none; }
+    .pad-hint { top:auto; bottom:18px; transform:translateX(-50%); background:#102532df; width:max-content; max-width:92%; padding:10px 18px; border:1px solid #ffffff24; border-radius:9px; color:#fff; }
+    .pad-hint .text-base { font-size:13px; }.pad-hint .text-xs { color:#ffd354; font-size:11px; }
+    .ready-badge { top:auto; bottom:24px; padding:9px 19px; font-size:11px; letter-spacing:1.5px; z-index:6; }
+    .sweep { background:#ffe36a; color:#ffe36a; }
+    .glove-anchor { color:#ffe36a; font-size:46px; text-shadow:0 0 4px #1b332d; z-index:5; }
+    .ball-anchor { display:none; }
+    .view-bottom { display:flex; align-items:center; justify-content:space-between; padding:9px 13px; color:#9eb2bc; font-size:10px; }
+    .view-bottom kbd { border:1px solid #ffffff30; border-radius:4px; padding:2px 6px; color:#d9e5e9; }
+    .match-help { text-align:center; padding:14px 12px 0; font-size:11px; color:#8da5b0; }
+    .match-help span { margin-left:14px; color:#c0cfd4; }
+    .webgl-error { padding:45px 25px; font-size:14px; line-height:2; background:#172e38; color:white; }
+    .webgl-error button { display:block; padding:8px 15px; margin-top:15px; border-radius:6px; background:#ffd354; color:#152c32; }
+    @media(max-width:800px) {
+      .landing3d { padding:22px; }.hero3d { gap:20px; padding:36px 0 28px; }.hero-stadium { height:390px; border-top-left-radius:70px; }
+      .hero-copy h1 { font-size:48px; }.hero-copy p { font-size:12px; }.hero-meta { gap:8px; }.how3d { gap:20px; font-size:10px; }
+    }
+    @media(max-width:600px) and (orientation:portrait) {
+      .hero3d { grid-template-columns:1fr; padding-top:30px; }.hero-copy h1 { font-size:48px; margin:15px 0; }.hero-stadium { height:280px; border-radius:50px 10px 10px 10px; }
+      .start3d { margin-top:22px; width:100%; }.hero-meta { margin-top:15px; }.how3d { gap:12px; justify-content:space-between; }.how3d b { margin-right:4px; }
+      .duel3d { flex-direction:column; padding:0 10px; gap:10px; }.pad { height:32svh; min-height:240px; }.view-heading { padding:8px 12px; }.view-bottom { padding:6px 12px; }
+      .pad-hint { bottom:10px; padding:7px 12px; }.match-help span { display:block; margin:5px 0 0; }
+    }
+    @media(max-height:500px) and (orientation:landscape) {
+      .pad { height:calc(100svh - 200px); min-height:185px; }.duel3d { gap:9px; padding:0 10px; }.view-heading { padding:6px 10px; }.view-bottom { padding:5px 9px; }
+      .pad-hint { bottom:8px; padding:6px 10px; }.pad-hint .text-base { display:none; }.match-help { padding-top:8px; }
+      #app>main>.px-4 { padding-top:5px; } #app .max-w-md.mb-6 { margin-bottom:8px; } #app>footer { padding:8px 0; }
+    }
+    @media(prefers-reduced-motion:reduce) { .float-ball,.result-pop,.pop-in { animation:none; } }
+    /* 경기 중에는 카드를 걷어내고 두 카메라가 뷰포트 전체를 채운다. */
+    #app.match-mode { height:100dvh; min-height:0; overflow:hidden; }
+    .match-mode .match3d { position:absolute; inset:0; }
+    .match-mode .duel3d { position:absolute; inset:0; max-width:none; height:100%; padding:0; margin:0; gap:2px; background:#122c37; }
+    .match-mode .player-view { position:relative; border:0; border-radius:0; min-height:0; }
+    .match-mode .pad { position:absolute; inset:0; height:100%; min-height:0; width:100%; }
+    .match-mode .view-heading { position:absolute; z-index:7; top:max(16px,env(safe-area-inset-top)); left:20px; right:20px; padding:0; flex-direction:column; align-items:flex-start; gap:3px; pointer-events:none; text-shadow:0 1px 4px #000a; }
+    .match-mode .player-view:last-child .view-heading { align-items:flex-end; }
+    .match-mode .view-heading>div { padding:5px 9px; background:#142935bf; border:1px solid #ffffff30; border-radius:5px; }
+    .match-mode .view-heading>span { padding:2px 5px; color:#edf6f9; }
+    .match-mode .camera-tag { top:78px; left:20px; }
+    .match-mode .view-bottom { position:absolute; bottom:27px; left:80px; right:80px; z-index:7; padding:0; justify-content:center; gap:8px; color:#fff; text-shadow:0 1px 4px #000; pointer-events:none; }
+    .match-mode .view-bottom kbd { background:#142935a8; }
+    .match-mode .pad-hint { bottom:70px; }
+    .match-mode .ready-badge { bottom:80px; }
+    .play-score { position:absolute; top:max(10px,env(safe-area-inset-top)); left:50%; transform:translateX(-50%); width:min(360px,43vw); z-index:9; pointer-events:none; }
+    .play-score .max-w-md { margin-bottom:0; }
+    .play-score .stadium-card { border-radius:10px; background:#102935dd; padding:6px 10px; box-shadow:0 3px 18px #0003; }
+    .play-score .text-3xl { font-size:26px; line-height:1.05; }
+    .play-score .text-sm { font-size:11px; }.play-score .text-lg { font-size:13px; }.play-score .mt-2 { margin-top:2px; font-size:11px; color:#fff; text-shadow:0 1px 3px #000; }
+    .match-mode .match-help { display:none; }
+    .match-mode>footer { position:absolute; bottom:0; left:0; right:0; z-index:8; padding:4px 6px; font-size:9px; background:#1026308c; pointer-events:auto; }
+    .fullscreen3d { position:absolute; right:16px; bottom:30px; z-index:12; padding:8px 12px; border:1px solid #ffffff55; border-radius:7px; background:#142935cf; color:#fff; font-size:11px; font-weight:700; }
+    body:has(.match-mode) #btn-mute { top:auto; right:auto; left:16px; bottom:30px; z-index:12; }
+    @media(max-width:600px) and (orientation:portrait) {
+      .match-mode .duel3d { flex-direction:column; }
+      .match-mode .view-heading { top:12px; left:12px; right:12px; }
+      .match-mode .player-view:last-child .view-heading { align-items:flex-start; }
+      .match-mode .view-heading b { font-size:12px; }.match-mode .view-heading>span { font-size:8px; }
+      .play-score { top:8px; width:44vw; left:auto; right:10px; transform:none; }
+      .play-score .text-sm { font-size:9px; }.play-score .text-3xl { font-size:20px; }.play-score .px-3 { padding:0 4px; }
+      .match-mode .camera-tag { top:72px; left:12px; font-size:7px; }
+      .match-mode .pad-hint { bottom:38px; padding:6px 10px; }
+      .match-mode .pad-hint .text-base { display:none; }
+      .match-mode .view-bottom { bottom:10px; left:20px; right:20px; font-size:9px; }
+      .match-mode .player-view:last-child .pad-hint { bottom:78px; }
+      .match-mode .player-view:last-child .view-bottom { bottom:57px; }
+      .match-mode .ready-badge { bottom:48px; }.match-mode .player-view:last-child .ready-badge { bottom:85px; }
+    }
+
+    .landing3d { position:relative; width:100%; max-width:none; padding:26px 5vw 12px; isolation:isolate; }
+    .landing3d::before { content:''; position:absolute; inset:0; z-index:-2; background:#08182f url('public/hero-stadium-v1.webp') center/cover no-repeat; }
+    .landing3d::after { content:''; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,rgba(4,15,34,.75),rgba(4,15,34,.22) 48%,transparent 80%),linear-gradient(0deg,#101e28 0%,transparent 18%); }
+    .landing-header { display:flex; justify-content:space-between; align-items:center; padding-right:42px; }
+    .instagram3d { font-size:11px; color:#c8d9e4; padding:7px 10px; border:1px solid #ffffff30; border-radius:6px; background:#0c20334d; }
+    .hero3d { min-height:500px; grid-template-columns:1fr 1fr; padding:52px 0 34px; }
+    .hero-copy { position:relative; z-index:1; }.hero-copy h1 { font-size:clamp(54px,5.4vw,78px); text-shadow:0 4px 25px #0004; }
+    .hero-copy p { color:#d1dce4; }.hero-art { align-self:stretch; position:relative; }.hero-art .live3d { top:14px; right:0; }
+    .landing-actions { display:flex; gap:8px; margin-top:22px; flex-wrap:wrap; }.landing-actions button { background:#112c40b3; border:1px solid #ffffff30; border-radius:6px; padding:9px 12px; font-size:11px; color:#e3edf2; }
+    .how3d { border-color:#ffffff35; color:#d1dce4; }
+    button:focus-visible,a:focus-visible { outline:3px solid #ffd354; outline-offset:4px; } button:disabled { opacity:.7; cursor:wait; }
+    .finish-notice { position:absolute; inset:0; z-index:90; display:grid; place-items:center; background:#04111dba; padding:30px; }
+    .finish-dialog { width:min(420px,90%); padding:28px; border:1px solid #ffffff30; border-radius:16px; background:#152e3c; box-shadow:0 20px 70px #0006; }
+    .finish-dialog h2 { font-size:20px; font-weight:800; margin-bottom:14px; }.finish-dialog p { font-size:14px; line-height:1.8; color:#d1dce4; }.finish-dialog input { width:100%; margin-top:14px; padding:10px; background:#0a202c; border:1px solid #607783; border-radius:6px; }
+    .finish-dialog button { background:#ffd354; color:#102631; border-radius:7px; padding:10px 20px; margin-top:20px; font-weight:800; }
+    #app.scaled-stage { position:fixed; left:50%; top:50%; width:1280px!important; height:720px!important; min-height:0!important; transform:translate(-50%,-50%) scale(var(--stage-scale)); transform-origin:center; }
+    .scaled-stage .landing3d { padding:26px 64px 12px; }.scaled-stage .hero3d { grid-template-columns:1fr 1fr; min-height:500px; padding:52px 0 34px; }.scaled-stage .hero-copy h1 { font-size:72px; margin:23px 0; }.scaled-stage .hero-copy p { font-size:14px; }
+    .scaled-stage .start3d { width:230px; margin-top:30px; }.scaled-stage .hero-meta { gap:15px; margin-top:20px; }.scaled-stage .how3d { gap:40px; font-size:12px; justify-content:initial; }.scaled-stage .how3d b { margin-right:12px; }
+    .scaled-stage .view-heading b { font-size:14px; }.scaled-stage .view-heading>span { font-size:9px; }.scaled-stage .play-score .px-3 { padding-left:12px; padding-right:12px; }
+    .scaled-stage .duel3d { flex-direction:row!important; }.scaled-stage .play-score { width:360px; left:50%; right:auto; transform:translateX(-50%); top:10px; }.scaled-stage .play-score .text-3xl { font-size:26px; }
+    .scaled-stage .play-score .text-sm { font-size:11px; }.scaled-stage .view-heading { top:16px; left:20px; right:20px; }.scaled-stage .player-view:last-child .view-heading { align-items:flex-end; }
+    .scaled-stage .camera-tag { top:78px; left:20px; font-size:8px; }.scaled-stage .pad-hint,.scaled-stage .player-view:last-child .pad-hint { bottom:70px; padding:10px 18px; }.scaled-stage .pad-hint .text-base { display:block; }
+    .scaled-stage .view-bottom,.scaled-stage .player-view:last-child .view-bottom { bottom:27px; left:80px; right:80px; font-size:10px; }.scaled-stage .ready-badge,.scaled-stage .player-view:last-child .ready-badge { bottom:80px; }
+    body:has(.scaled-stage) { overflow:hidden; background:#081321; }
+    @media(orientation:portrait) { body:has(.scaled-stage)::after { content:'↻ 기기를 가로로 돌리면 크게 볼 수 있어요'; position:fixed; bottom:24px; left:0; right:0; text-align:center; color:#a5bcc8; font-size:12px; pointer-events:none; } }
+
+
   </style>
 </head>
 <body>
   <div id="app" class="stadium-bg pitch-stripes relative min-h-screen flex flex-col"></div>
 
   <script type="module">
+    let arenaFactory = null;
+    let arena = null;
+    let resizeInputs = null;
+    let roundGeneration = 0;
+
     // ============================================================
-    // 무무월드컵 3 — Phase 1 (랜딩 + 이름 입력)
+    // 무무월드컵 3 — 3D 승부차기
     // 세션 상태 + 화면 라우팅 뼈대
     // ============================================================
 
@@ -362,6 +493,12 @@
 
     // ----- 라우터: screen 값에 따라 화면 렌더 -----
     function render() {
+      app.classList.toggle('match-mode', gameState.screen === 'play');
+      roundGeneration++;
+      arena?.dispose(); arena = null;
+      resizeInputs?.disconnect(); resizeInputs = null;
+      if (sweepRAF) cancelAnimationFrame(sweepRAF);
+      if (keeperRAF) cancelAnimationFrame(keeperRAF);
       const screens = {
         landing: renderLanding,
         names:   renderNames,
@@ -373,6 +510,7 @@
       // 화면 + 푸터를 항상 같이
       app.insertAdjacentHTML('afterbegin', view + footer());
       bindEvents();
+      bindFinishEvents();
     }
 
     function go(screen) {
@@ -382,34 +520,27 @@
 
     // ----- 공통 푸터 (모든 화면 하단) -----
     function footer() {
-      return `
-        <footer data-screen class="mt-auto py-5 text-center text-xs"
-                style="color: var(--ink-muted);">
-          © 2026 무궁무진클래스 · 용쌤 →
-          <a href="https://mumuclass.kr" target="_blank" rel="noopener"
-             class="underline hover:text-white">mumuclass.kr</a>
-        </footer>`;
+      return `<footer data-screen class="mt-auto py-5 text-center text-xs" style="color:var(--ink-muted)">
+        © 2026 <a href="https://www.mumuclass.kr/" target="_blank" rel="noopener noreferrer">무궁무진 클래스</a> · 용쌤
+      </footer>`;
     }
 
-    // ----- 랜딩 화면 -----
     function renderLanding() {
-      return `
-        <main data-screen class="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          <div class="pop-in">
-            <img src="public/ball.png" alt="" class="float-ball mx-auto mb-4 drop-shadow-lg" style="width:96px;" />
-            <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight drop-shadow-md">
-              무무월드컵 <span style="color: var(--trophy);">3</span>
-            </h1>
-            <p class="mt-3 text-base sm:text-lg" style="color: var(--ink-muted);">
-              우리 반 키커왕은 누구?
-            </p>
-            <button id="btn-start"
-              class="btn-press mt-9 px-10 py-4 rounded-2xl font-bold text-lg shadow-xl"
-              style="background: var(--trophy); color: #1a1a1a;">
-              🏆 대결 시작
-            </button>
+      return `<main data-screen class="landing3d">
+        <header class="landing-header"><div class="brand3d"><span class="brand-ball">⚽</span> 무무월드컵 <b>3</b><span class="edition3d">3D EDITION</span></div>
+          <a class="instagram3d" href="https://www.instagram.com/yongssam.dev/" target="_blank" rel="noopener noreferrer">@yongssam.dev ↗</a></header>
+        <div class="hero3d">
+          <div class="hero-copy"><div class="eyebrow3d">OUR CLASS. OUR WORLD CUP.</div>
+            <h1>승부는,<br>마지막 <em>한 킥.</em></h1>
+            <p>키커의 한 방, 골키퍼의 한 수.<br>우리 반의 월드컵이 지금 시작됩니다.</p>
+            <button id="btn-start" class="start3d btn-press">대결 시작 <span>↗</span></button>
+            <div class="hero-meta"><span>● 같은 기기 2인</span><span>각 5번의 킥</span><span>터치 · 키보드</span></div>
+            <div class="landing-actions"><button id="btn-share">↗ 공유하기</button><button id="btn-install">＋ 홈화면 설치</button><button id="btn-landing-fullscreen">⛶ 전체화면</button></div>
           </div>
-        </main>`;
+          <div class="hero-art" aria-label="조명이 켜진 경기장에서 키커와 골키퍼가 맞서는 승부차기 장면"><span class="live3d"><i></i> MUMU STADIUM</span></div>
+        </div>
+        <div class="how3d"><span><b>01</b> 이름을 정하고</span><span><b>02</b> 좌우 · 높이 타이밍 탭</span><span><b>03</b> 골문을 흔들어요</span></div>
+      </main>`;
     }
 
     // ----- 이름 입력 화면 -----
@@ -468,9 +599,10 @@
     function renderPlay() {
       // duel — 좌우 동시 드래그 (판정은 연출 오버레이로)
       return `
-        <main data-screen class="flex-1 flex flex-col">
-          <div class="px-4 pt-3 flex justify-center">${scoreboard()}</div>
+        <main data-screen class="match3d">
+          <div class="play-score">${scoreboard()}</div>
           ${renderDuel()}
+          <button id="btn-fullscreen" class="fullscreen3d" aria-label="전체화면 전환">⛶ 전체화면</button>
         </main>`;
     }
 
@@ -485,7 +617,7 @@
             </div>
             <div class="px-3 text-center">
               <div class="text-[10px] font-bold" style="color: var(--ink-muted);">ROUND</div>
-              <div class="font-black text-lg">${Math.min(gameState.round, TOTAL_ROUNDS)}/${TOTAL_ROUNDS}</div>
+              <div class="font-black text-lg">${gameState.suddenDeath ? 'SD ' + (gameState.round - TOTAL_ROUNDS) : gameState.round + '/' + TOTAL_ROUNDS}</div>
             </div>
             <div class="flex-1 text-center">
               <div class="text-sm font-bold truncate" style="color: var(--p2);">${esc(nameOf('p2'))}</div>
@@ -504,7 +636,7 @@
       const kicks = gameState.history.filter((h) => h.kicker === k);
       let out = '';
       for (let i = 0; i < TOTAL_ROUNDS; i++) {
-        const r = kicks[i];
+        const r = kicks.slice(-TOTAL_ROUNDS)[i];
         const sym = !r ? '·'
           : r.result === 'goal' ? '⚽'
           : r.result === 'save' ? '🧤'
@@ -520,120 +652,28 @@
     let duelChoice = { p1: null, p2: null }; // {x, y, power}
 
     function renderDuel() {
-      const leftRole  = gameState.kickerThisRound === 'p1' ? 'kicker' : 'keeper';
-      const rightRole = gameState.kickerThisRound === 'p1' ? 'keeper' : 'kicker';
-      return `
-        <div class="flex-1 flex">
-          ${pad('p1', leftRole)}
-          <div class="pad-divider"></div>
-          ${pad('p2', rightRole)}
-        </div>`;
+      return `<div class="duel3d">
+        ${pad('p1', kickerKey() === 'p1' ? 'kicker' : 'keeper')}
+        ${pad('p2', kickerKey() === 'p2' ? 'kicker' : 'keeper')}
+      </div>
+      <div class="match-help">움직이는 조준선을 보고 두 번 탭! <span>P1: A · P2: L</span></div>`;
     }
 
-    // 키커 시점 장면 — 컬러 골대(위) + 페널티 박스 원근
-    function sceneKicker(player) {
-      return `
-        <svg class="scene" viewBox="0 0 100 150" preserveAspectRatio="xMidYMin slice">
-          <defs>
-            <linearGradient id="pitchK-${player}" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#1f7a33"/><stop offset="1" stop-color="#0f5220"/>
-            </linearGradient>
-            <linearGradient id="goal-${player}" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="#FFD6E0"/><stop offset="0.5" stop-color="#FFC633"/>
-              <stop offset="1" stop-color="#C8E6F5"/>
-            </linearGradient>
-          </defs>
-          <rect width="100" height="150" fill="url(#pitchK-${player})"/>
-          <path d="M22 60 L78 60 L96 132 L4 132 Z" fill="none"
-                stroke="rgba(255,255,255,0.28)" stroke-width="1.2"/>
-          <ellipse cx="50" cy="118" rx="3" ry="1.3" fill="rgba(255,255,255,0.8)"/>
-          <!-- 컬러 골대 -->
-          <g id="goalframe-${player}">
-            <path d="M28 47 L28 24 L72 24 L72 47" fill="none"
-                  stroke="url(#goal-${player})" stroke-width="3.4" stroke-linejoin="round"/>
-            <g stroke="rgba(255,255,255,0.22)" stroke-width="0.6">
-              <line x1="36" y1="24" x2="36" y2="47"/><line x1="44" y1="24" x2="44" y2="47"/>
-              <line x1="50" y1="24" x2="50" y2="47"/><line x1="56" y1="24" x2="56" y2="47"/>
-              <line x1="64" y1="24" x2="64" y2="47"/>
-              <line x1="28" y1="31" x2="72" y2="31"/><line x1="28" y1="39" x2="72" y2="39"/>
-            </g>
-          </g>
-        </svg>`;
-    }
-
-    // 키퍼 시점 장면 — 잔디 배경 + 멀리 필드 라인 (골대 프레임은 HTML 오버레이로)
-    function sceneKeeper(player) {
-      return `
-        <svg class="scene" viewBox="0 0 100 150" preserveAspectRatio="xMidYMin slice">
-          <defs>
-            <linearGradient id="pitchG-${player}" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#15692b"/><stop offset="1" stop-color="#1f7a33"/>
-            </linearGradient>
-          </defs>
-          <rect width="100" height="150" fill="url(#pitchG-${player})"/>
-          <!-- 멀리 페널티 라인 (골대 앞 필드 원근) -->
-          <line x1="0" y1="92" x2="100" y2="92" stroke="rgba(255,255,255,0.16)" stroke-width="1"/>
-          <path d="M14 120 L86 120 L68 92 L32 92 Z" fill="none"
-                stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-        </svg>`;
-    }
-
-    // 9구역 셀 — data-zx(-1좌~1우) / data-zy(0바닥~1상단)
-    function zoneCells() {
-      const xs = [-0.8, 0, 0.8];   // 좌 · 중 · 우
-      const ys = [0.8, 0.5, 0.2];  // 위 · 중 · 아래 (행 순서)
-      let out = '';
-      for (let r = 0; r < 3; r++)
-        for (let c = 0; c < 3; c++)
-          out += `<div class="zone-cell" data-zone="${r * 3 + c}" data-zx="${xs[c]}" data-zy="${ys[r]}"></div>`;
-      return out;
-    }
-
-    // 골대 + 그물망 — goal-frame div를 꽉 채움 (CSS 다이아몬드 메시)
-    function goalNet() {
-      return `<div class="goal-net"></div>`;
-    }
-
-    // 한 쪽 패드 — 키커(타이밍 슛) / 키퍼(타이밍 막기) 분기
     function pad(player, role) {
       const isKicker = role === 'kicker';
-      const accent = colorOf(player);
-      const roleLabel = isKicker ? '↔ 좌우 타이밍 탭!' : '🧤 글러브 좌우 타이밍 탭!';
-
-      const hint = `
-        <div class="pad-hint" id="hint-${player}">
-          <div class="font-extrabold text-base" style="color:${accent};">${esc(nameOf(player))}</div>
-          <div class="text-xs mt-1" style="color: var(--ink-muted);">${roleLabel}</div>
-        </div>`;
-      const ready = `<div class="ready-badge" id="ready-${player}" style="display:none;">READY ✓</div>`;
-
-      if (isKicker) {
-        // 키커: 스타디움 배경 + 골대(위) + 가까운 키커 + 타이밍 스윕
-        return `
-          <div class="pad" id="pad-${player}" data-player="${player}" data-role="${role}">
-            <img class="scene" src="public/pitch-kicker.jpg" alt="" />
-            <div class="goal-frame gf-kicker" id="goalframe-${player}">${goalNet()}</div>
-            <img class="actor figure-kicker" id="kicker-${player}" src="public/kicker.png" alt="" style="left:64%; bottom:6%;" />
-            <div class="sweep sweep-v" id="sweepv-${player}" style="background:${accent}; color:${accent};"></div>
-            <div class="sweep sweep-h" id="sweeph-${player}" style="background:${accent}; color:${accent};"></div>
-            <img class="anchor" id="anchor-${player}" src="public/ball.png" alt="" style="width:38px;" />
-            ${hint}
-            ${ready}
-          </div>`;
-      }
-
-      // 키퍼: 스타디움 배경 + 멀리 키커 + 골대 프레임 + 날아올 공 + 글러브 조준 + 골키퍼 다이빙
-      return `
-        <div class="pad" id="pad-${player}" data-player="${player}" data-role="${role}">
-          <img class="scene" src="public/pitch-keeper.jpg" alt="" />
-          <img class="actor figure-kicker-far" id="farkicker-${player}" src="public/kicker.png" alt="" style="left:50%; top:4%; transform:translateX(-50%);" />
-          <img class="ball-fly" id="farball-${player}" src="public/ball.png" alt="" style="left:50%; top:9%; transform:translate(-50%,-50%); opacity:0;" />
-          <div class="goal-frame gf-keeper" id="goalframe-${player}">${goalNet()}</div>
-          <img class="anchor" id="anchor-${player}" src="public/glove.png" alt="" style="width:54px; opacity:0;" />
-          <img class="actor figure-keeper" id="gk-${player}" src="public/keeper.png" alt="" style="left:50%; top:58%; transform:translate(-50%,-50%); opacity:0;" />
-          ${hint}
-          ${ready}
-        </div>`;
+      return `<section class="player-view" style="--player-color:${colorOf(player)}">
+        <div class="view-heading"><div><i></i><b>${esc(nameOf(player))}</b></div><span>${isKicker ? 'ATTACK / 키커' : 'DEFEND / 골키퍼'}</span></div>
+        <div class="pad" id="pad-${player}" data-player="${player}" data-role="${role}" role="button" tabindex="0" aria-label="${esc(nameOf(player))} ${isKicker ? '슛' : '수비'} 타이밍 선택">
+          <canvas class="arena-canvas" id="canvas-${player}" aria-label="${isKicker ? '키커' : '골키퍼'} 3D 시점"></canvas>
+          <div class="camera-tag">${isKicker ? '↗ KICKER CAM' : '↙ KEEPER CAM'}</div>
+          <div class="goal-frame" id="goalframe-${player}"></div>
+          ${isKicker ? `<div class="sweep sweep-v" id="sweepv-${player}"></div><div class="sweep sweep-h" id="sweeph-${player}"></div>` : ''}
+          <div class="anchor ${isKicker ? 'ball-anchor' : 'glove-anchor'}" id="anchor-${player}">${isKicker ? '' : '＋'}</div>
+          <div class="pad-hint" id="hint-${player}"><div class="font-extrabold text-base">${isKicker ? '골문 구석을 노려요' : '공이 올 곳을 예측해요'}</div><div class="text-xs mt-1">① 좌우 타이밍 탭!</div></div>
+          <div class="ready-badge" id="ready-${player}" style="display:none" role="status">READY ✓</div>
+        </div>
+        <div class="view-bottom"><span>${isKicker ? '두 번 탭해서 슛 위치 확정' : '두 번 탭해서 다이빙 위치 확정'}</span><kbd>${player === 'p1' ? 'A' : 'L'}</kbd></div>
+      </section>`;
     }
 
     // ----- 듀얼 판정 + 연출 -----
@@ -646,7 +686,8 @@
       resolving = true;
       const k = kickerKey(), g = keeperKey();
       const shot = duelChoice[k];   // {x,y}  슛 목표 (x:-1.3좌~1.3우, y:0바닥~1.3위)
-      const dive = duelChoice[g];   // {x,y}  키퍼 글러브 위치 (타이밍 2단계)
+      // 골키퍼는 골대 뒤에서 보므로 화면 좌우를 월드 좌우로 변환한다.
+      const dive = { ...duelChoice[g], x: -duelChoice[g].x };   // {x,y}  키퍼 글러브 위치 (타이밍 2단계)
 
       // 1) 키퍼와 무관한 판정 먼저 — 골대 밖(miss) / 기둥·크로스바(post)
       const ax = Math.abs(shot.x);
@@ -665,102 +706,23 @@
       const isGoal = outcome === 'goal';
       if (isGoal) gameState[k + 'Score'] += 1;
       gameState.history.push({ round: gameState.round, kicker: k, shot, dive, result: outcome });
-      Sound.kick();   // 공 발사 임팩트
+      const generation = roundGeneration;
       animateDuel(k, g, shot, dive, outcome).then(() => {
+        if (generation !== roundGeneration) return;
         resolving = false;
         showResult(outcome, k, shot);
       });
     }
 
-    // 포물선 궤적 키프레임 — 수평 등속 + 위로 볼록한 호 + 스핀 + 원근 스케일
-    // dx,dy = 총 이동량(px), arc = 호 최고점 높이(px), s0→s1 = 스케일, spin = 총 회전(deg)
-    function arcFrames(dx, dy, { arc = 0, s0 = 1, s1 = 1, spin = 0, steps = 18 } = {}) {
-      const out = [];
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        const x = dx * t;
-        const y = dy * t - arc * 4 * t * (1 - t);   // 4t(1-t): 양끝 0, 중앙 최대
-        const s = s0 + (s1 - s0) * t;
-        const rot = spin * t;
-        out.push({
-          transform: `translate(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px)) scale(${s.toFixed(3)}) rotate(${rot.toFixed(0)}deg)`,
-          offset: t,
-        });
-      }
-      return out;
-    }
-
-    // 공/키퍼 연출 (Web Animations API). k=키커쪽 player, g=키퍼쪽 player
+    // 물리 월드 하나를 두 시점으로 렌더링한다.
     function animateDuel(k, g, shot, dive, outcome) {
-      const ease = 'cubic-bezier(0.4, 0, 0.2, 1)';
-      // 키커 쪽: 공이 골대로 날아감 + 키커 차는 모션
-      const padK = document.getElementById('pad-' + k);
-      const ball = document.getElementById('anchor-' + k);
-      const kicker = document.getElementById('kicker-' + k);
-      if (padK && ball) {
-        const r = padK.getBoundingClientRect();
-        const startX = r.width * 0.5, startY = r.height * 0.78;  // 공 시작점(하단 중앙)
-        const tp = goalFramePoint(padK, shot.x, shot.y);          // 실제 골대 안 도착 지점
-        const tx = tp.px - startX;
-        const ty = tp.py - startY;
-        ball.animate(
-          arcFrames(tx, ty, { arc: Math.abs(ty) * 0.22 + 24, s0: 1, s1: 0.55, spin: 540 }),
-          { duration: 680, easing: 'linear', fill: 'forwards' });
-      }
-      if (kicker) kicker.animate(
-        [{ transform: 'translateX(0) rotate(0)' },
-         { transform: 'translateX(-8px) rotate(-12deg)', offset: 0.3 },
-         { transform: 'translateX(4px) rotate(6deg)' }],
-        { duration: 450, easing: ease, fill: 'forwards' });
-
-      // 키퍼 쪽: 공이 골대로 날아오고, 골키퍼가 자기가 고른 위치로 몸을 날려 다이빙
-      const padG = document.getElementById('pad-' + g);
-      const glove = document.getElementById('anchor-' + g);
-      const gkEl  = document.getElementById('gk-' + g);
-      const farball = document.getElementById('farball-' + g);
-      if (padG) {
-        const r = padG.getBoundingClientRect();
-        // 조준용 글러브는 숨기고, 골키퍼 본체가 그 자리로 다이빙
-        if (glove) glove.style.opacity = '0';
-        if (gkEl) {
-          // 막았으면 공 위치로 손을 뻗어 잡고, 놓쳤으면 자기가 고른 헛다이빙 위치로
-          const target = (outcome === 'save') ? shot : dive;
-          const tp = goalFramePoint(padG, target.x, target.y);
-          const startX = r.width * 0.5, startY = r.height * 0.60;  // 골라인 앞 대기 위치
-          const dx = tp.px - startX, dy = tp.py - startY;
-          const lean = target.x * 68;   // 좌우로 기울며 날아가는 다이빙 각
-          gkEl.style.opacity = '1';
-          gkEl.animate(
-            [{ transform: 'translate(-50%,-50%) rotate(0deg) scale(1)' },
-             { transform: `translate(calc(-50% + ${(dx * 0.6).toFixed(1)}px), calc(-50% + ${(dy * 0.6).toFixed(1)}px)) rotate(${(lean * 0.6).toFixed(0)}deg) scale(1.06)`, offset: 0.55 },
-             { transform: `translate(calc(-50% + ${dx.toFixed(1)}px), calc(-50% + ${dy.toFixed(1)}px)) rotate(${lean.toFixed(0)}deg) scale(1.12)` }],
-            { duration: 540, easing: ease, fill: 'forwards', delay: 110 });
-        }
-        if (farball) {
-          const sp = goalFramePoint(padG, shot.x, shot.y);   // 슛이 향한 지점
-          const sx = sp.px - r.width * 0.5;
-          const sy = sp.py - r.height * 0.09;
-          farball.style.opacity = '1';
-          farball.animate(
-            arcFrames(sx, sy, { arc: r.height * 0.16 + 30, s0: 0.5, s1: 1.05, spin: 720 }),
-            { duration: 700, easing: 'linear', fill: 'forwards' });
-        }
-      }
-      return new Promise((res) => setTimeout(res, 820));
-    }
-
-    // 골대 프레임 안 (x:-1좌~1우, y:0바닥~1상단) → 패드 기준 픽셀 좌표
-    function goalFramePoint(padEl, x, y) {
-      const gf = document.getElementById('goalframe-' + padEl.dataset.player).getBoundingClientRect();
-      const pr = padEl.getBoundingClientRect();
-      const px = (gf.left - pr.left) + gf.width * (x + 1) / 2;
-      const py = (gf.top - pr.top) + gf.height * (1 - y);
-      return { px, py };
+      document.querySelectorAll('.sweep, .anchor').forEach(el => el.style.opacity = '0');
+      return arena.play(shot, dive, outcome, Sound.kick);
     }
 
     // 결과 오버레이 (GOAL/SAVE/POST/MISS + 폭죽 + 다음 버튼)
     function showResult(outcome, k, shot) {
-      const isLast = gameState.round >= TOTAL_ROUNDS && gameState.kickerThisRound === 'p2';
+      const isLast = gameState.round >= TOTAL_ROUNDS && gameState.kickerThisRound === 'p2' && gameState.p1Score !== gameState.p2Score;
       // 결과별 연출 정보
       const view = {
         goal: { emoji: '🥅', title: 'GOAL!',  color: 'var(--trophy)', desc: `${esc(nameOf(k))} 득점! ⚽` },
@@ -802,10 +764,11 @@
         render();
       } else {
         gameState.kickerThisRound = 'p1';
-        if (gameState.round >= TOTAL_ROUNDS) {
+        if (gameState.round >= TOTAL_ROUNDS && gameState.p1Score !== gameState.p2Score) {
           go('result');
         } else {
           gameState.round += 1;
+          gameState.suddenDeath = gameState.round > TOTAL_ROUNDS;
           render();
         }
       }
@@ -834,7 +797,7 @@
                 <div class="text-5xl font-black">${p2}</div>
               </div>
             </div>
-            ${tie ? `<p class="text-xs mb-4" style="color: var(--ink-muted);">Phase 5에서 서든데스 추가</p>` : ''}
+
             <button id="btn-home"
               class="btn-press px-8 py-4 rounded-2xl font-bold text-lg shadow-xl"
               style="background: var(--trophy); color: #1a1a1a;">
@@ -846,6 +809,14 @@
 
     // ----- 이벤트 바인딩 (렌더마다 재연결) -----
     function bindEvents() {
+      const fullscreen = document.getElementById('btn-fullscreen');
+      if (fullscreen) fullscreen.onclick = async () => {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+          else fullscreen.textContent = '브라우저 전체화면을 사용해 주세요';
+        } catch { fullscreen.textContent = '브라우저 전체화면을 사용해 주세요'; }
+      };
       const start = document.getElementById('btn-start');
       if (start) start.onclick = () => { Sound.resume(); Sound.tap(); go('names'); };
 
@@ -855,19 +826,44 @@
       const home = document.getElementById('btn-home');
       if (home) home.onclick = () => go('landing');
 
-      // 듀얼 패드 설정 (좌우 동시) — 키커=타이밍 2단계 / 키퍼=구역 탭
-      if (gameState.screen === 'play') {
-        resolving = false;
-        ['p1', 'p2'].forEach((pl) => {
-          const el = document.getElementById('pad-' + pl);
-          if (!el) return;
-          if (el.dataset.role === 'kicker') setupKicker(pl);
-          else setupKeeper(pl);
-        });
+      const preview = document.getElementById('preview3d');
+      try {
+        if (preview && arenaFactory) arena = arenaFactory([{ canvas: preview }], 'p1', true);
+        if (gameState.screen === 'play') {
+          resolving = false;
+          arena = arenaFactory(['p1', 'p2'].map(player => ({
+            canvas: document.getElementById('canvas-' + player),
+            frame: document.getElementById('goalframe-' + player),
+            role: document.getElementById('pad-' + player).dataset.role,
+          })), kickerKey());
+          const setup = () => {
+            if (resolving || !arena) return;
+            arena.resize();
+            ['p1', 'p2'].forEach(pl => {
+              if (duelChoice[pl]) return;
+              const el = document.getElementById('pad-' + pl);
+              if (el.dataset.role === 'kicker') setupKicker(pl); else setupKeeper(pl);
+            });
+          };
+          setup();
+          resizeInputs = new ResizeObserver(setup);
+          document.querySelectorAll('.pad').forEach(el => resizeInputs.observe(el));
+        }
+      } catch (error) {
+        console.error('3D 경기장 초기화 실패', error);
+        const target = document.querySelector('.duel3d') || document.querySelector('.hero-stadium');
+        if (target) target.innerHTML = '<div class="webgl-error" role="alert">3D 경기장을 불러오지 못했어요.<br>브라우저의 하드웨어 가속을 켠 뒤 다시 열어주세요.<button onclick="location.reload()">다시 불러오기</button></div>';
       }
 
       const play = document.getElementById('btn-play');
-      if (play) play.onclick = () => {
+      if (play) play.onclick = async () => {
+        play.disabled = true; play.textContent = '경기장 준비 중…';
+        try {
+          if (!arenaFactory) arenaFactory = (await import('./public/arena3d.js')).createArena;
+        } catch (error) {
+          play.disabled = false; play.textContent = '연결을 확인하고 다시 시작';
+          console.error('경기장 불러오기 실패', error); return;
+        }
         const p1 = document.getElementById('in-p1').value.trim();
         const p2 = document.getElementById('in-p2').value.trim();
         gameState.p1Name = p1 || 'P1';   // 빈칸이면 기본값
@@ -900,14 +896,17 @@
       if (!padEl) return;
       if (sweepRAF) cancelAnimationFrame(sweepRAF);
 
-      const pr = padEl.getBoundingClientRect();
+      const display = padEl.getBoundingClientRect();
+      const scale = display.width / padEl.clientWidth;
+      const pr = { width:padEl.clientWidth, height:padEl.clientHeight };
       // 공 시작 위치 (하단 중앙)
       ball.style.left = (pr.width * 0.5) + 'px';
       ball.style.top  = (pr.height * 0.78) + 'px';
+      ball.style.opacity = '0';
 
       // 골대 프레임 영역 (패드 기준) — 스윕 범위
       const gf = document.getElementById('goalframe-' + player).getBoundingClientRect();
-      const gx0 = gf.left - pr.left, gy0 = gf.top - pr.top, gw = gf.width, gh = gf.height;
+      const gx0 = (gf.left - display.left) / scale, gy0 = (gf.top - display.top) / scale, gw = gf.width / scale, gh = gf.height / scale;
 
       // 스윕 범위를 골대보다 넓게 → 가장자리 타이밍이면 골대 밖/기둥(빗나감) 가능
       const mx = gw * 0.16, my = gh * 0.18;   // 좌우 / 위쪽 여유 (아래는 땅이라 X)
@@ -924,10 +923,10 @@
         else if (stage === 'y') hline.style.top  = (gy0 - my + tri(ts, 1100) * (gh + my)) + 'px';
         sweepRAF = requestAnimationFrame(frame);
       }
-      sweepRAF = requestAnimationFrame(frame);
+      frame(performance.now());
 
       padEl.onpointerdown = () => {
-        if (duelChoice[player]) return;   // 이미 확정
+        if (!arena || resolving || duelChoice[player]) return;   // 이미 확정
         if (stage === 'x') {
           lockedX = clamp(((parseFloat(vline.style.left) - gx0) / gw) * 2 - 1, -1.3, 1.3);
           vline.style.opacity = '0.45';   // 가로 확정 (흐리게 고정)
@@ -961,9 +960,11 @@
       if (!padEl) return;
       if (keeperRAF) cancelAnimationFrame(keeperRAF);
 
-      const pr = padEl.getBoundingClientRect();
+      const display = padEl.getBoundingClientRect();
+      const scale = display.width / padEl.clientWidth;
+      const pr = { width:padEl.clientWidth, height:padEl.clientHeight };
       const gf = document.getElementById('goalframe-' + player).getBoundingClientRect();
-      const gx0 = gf.left - pr.left, gy0 = gf.top - pr.top, gw = gf.width, gh = gf.height;
+      const gx0 = (gf.left - display.left) / scale, gy0 = (gf.top - display.top) / scale, gw = gf.width / scale, gh = gf.height / scale;
 
       // 글러브 보이기 + 골대 중앙에서 시작
       glove.style.opacity = '1';
@@ -980,10 +981,10 @@
         else if (stage === 'y') glove.style.top  = (gy0 + tri(ts, 820) * gh) + 'px';   // 상하 왕복
         keeperRAF = requestAnimationFrame(frame);
       }
-      keeperRAF = requestAnimationFrame(frame);
+      frame(performance.now());
 
       padEl.onpointerdown = () => {
-        if (duelChoice[player]) return;   // 이미 확정
+        if (!arena || resolving || duelChoice[player]) return;   // 이미 확정
         if (stage === 'x') {
           lockedX = clamp(((parseFloat(glove.style.left) - gx0) / gw) * 2 - 1, -1, 1);
           stage = 'y';
@@ -1003,6 +1004,72 @@
       };
     }
 
+
+    const SHARE_URL = 'https://soccer3-plum.vercel.app/';
+    let installPrompt = null;
+    window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt = event; });
+    window.addEventListener('appinstalled', () => { installPrompt = null; });
+    function fitStage() {
+      const width = document.documentElement.clientWidth, height = window.innerHeight;
+      const scaled = width <= 1280 || height < 720;
+      const scale = Math.min(width/1280,height/720);
+      app.classList.toggle('scaled-stage', scaled);
+      app.style.setProperty('--stage-scale',scale);
+      document.body.style.setProperty('--page-scale',scale);
+      arena?.resize();
+    }
+    window.addEventListener('resize',fitStage); window.visualViewport?.addEventListener('resize',fitStage);
+    function showNotice(title, message, copyValue = '') {
+      document.querySelector('.finish-notice')?.remove();
+      const previous = document.activeElement;
+      const overlay = document.createElement('div'); overlay.className='finish-notice'; overlay.dataset.screen='';
+      overlay.innerHTML=`<section class="finish-dialog" role="dialog" aria-modal="true" aria-labelledby="notice-title"><h2 id="notice-title">${esc(title)}</h2><p>${esc(message)}</p>${copyValue ? `<input readonly aria-label="복사할 게임 링크" value="${esc(copyValue)}">` : ''}<button>확인</button></section>`;
+      const close=()=>{overlay.remove();previous?.focus();};
+      overlay.querySelector('button').onclick=close;
+      overlay.onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();close();}if(event.key==='Tab'){const items=[...overlay.querySelectorAll('input,button')];if(items.length===1){event.preventDefault();items[0].focus();}else if(event.shiftKey && document.activeElement===items[0]){event.preventDefault();items.at(-1).focus();}else if(!event.shiftKey && document.activeElement===items.at(-1)){event.preventDefault();items[0].focus();}}};
+      app.appendChild(overlay); const field=overlay.querySelector('input'); if(field){field.focus();field.select();}else overlay.querySelector('button').focus();
+    }
+    async function toggleFullscreen() {
+      try {
+        if(document.fullscreenElement) { await document.exitFullscreen(); return; }
+        if(!document.documentElement.requestFullscreen) { showNotice('전체화면 안내','이 브라우저에서는 홈화면에 추가한 뒤 실행하거나 기기를 가로로 돌려 주세요.'); return; }
+        await document.documentElement.requestFullscreen();
+        try { await screen.orientation?.lock?.('landscape'); } catch { /* 잠금 미지원 환경은 같은 가로 스테이지를 축소한다. */ }
+      } catch { showNotice('전체화면 안내','브라우저 메뉴의 전체화면을 사용하거나 기기를 가로로 돌려 주세요.'); }
+    }
+    function bindFinishEvents() {
+      fitStage();
+      for(const id of ['btn-fullscreen','btn-landing-fullscreen']) { const button=document.getElementById(id); if(button)button.onclick=toggleFullscreen; }
+      const share=document.getElementById('btn-share');
+      if(share) share.onclick=async()=>{
+        if(navigator.share) {try {await navigator.share({title:'무무월드컵 3',text:'우리 반 키커왕은 누구? 함께 승부차기!',url:SHARE_URL});return;}catch(error){if(error.name==='AbortError')return;}}
+        try {if(!navigator.clipboard?.writeText)throw new Error('clipboard unavailable');await navigator.clipboard.writeText(SHARE_URL);showNotice('링크 복사 완료','친구에게 게임 링크를 붙여 넣어 공유해 주세요.');}
+        catch {showNotice('게임 링크 공유','아래 링크를 선택해 복사해 주세요.',SHARE_URL);}
+      };
+      const install=document.getElementById('btn-install');
+      if(install) install.onclick=async()=>{
+        if(matchMedia('(display-mode: standalone)').matches || navigator.standalone) {showNotice('설치된 앱','이미 홈화면 앱으로 실행 중입니다.');return;}
+        if(installPrompt){try {const prompt=installPrompt;installPrompt=null;await prompt.prompt();const result=await prompt.userChoice;if(result.outcome==='accepted')showNotice('설치 요청 완료','브라우저에서 설치가 끝나면 홈화면 아이콘으로 실행해 주세요.');}catch{showNotice('홈화면 설치','브라우저 메뉴에서 앱 설치 또는 홈화면에 추가를 선택해 주세요.');}return;}
+        const ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
+        showNotice('홈화면에 설치',ios?'Safari에서 공유 버튼을 누른 뒤 ‘홈 화면에 추가’를 선택하세요.':'Chrome 또는 Edge의 메뉴에서 ‘앱 설치’ 또는 ‘홈 화면에 추가’를 선택하세요. 메뉴가 없으면 공식 게임 주소를 기본 브라우저로 열어 주세요.');
+      };
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+      const button = document.getElementById('btn-fullscreen');
+      if (button) button.textContent = document.fullscreenElement ? '⛶ 전체화면 나가기' : '⛶ 전체화면';
+    });
+
+    document.addEventListener('keydown', event => {
+      if (gameState.screen !== 'play' || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+      const key = event.key.toLowerCase();
+      const player = key === 'a' ? 'p1' : key === 'l' ? 'p2' : null;
+      const el = player ? document.getElementById('pad-' + player) : document.activeElement;
+      if (el?.classList.contains('pad') && (player || key === 'enter' || key === ' ')) {
+        event.preventDefault(); el.onpointerdown?.();
+      }
+    });
+
     // ----- HTML 이스케이프 (이름 입력값 안전 처리) -----
     function esc(s) {
       return String(s).replace(/[&<>"']/g, (c) => ({
@@ -1016,7 +1083,7 @@
     muteBtn.textContent = '🔊';
     muteBtn.setAttribute('aria-label', '소리 켜기/끄기');
     muteBtn.onclick = () => { muteBtn.textContent = Sound.toggle() ? '🔇' : '🔊'; };
-    document.body.appendChild(muteBtn);
+    app.appendChild(muteBtn);
 
     render();
   </script>

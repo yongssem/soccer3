@@ -1,0 +1,23 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+const root=path.resolve(import.meta.dirname,'..');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const entry=html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
+new vm.Script(entry.replace("await import('./public/arena3d.js')",'({createArena:null})'));
+for(const match of html.matchAll(/(?:src|href)="(public\/[^"#?]+|manifest.webmanifest)"/g)) assert(fs.existsSync(path.join(root,match[1])),match[1]);
+assert(html.includes('await import(\'./public/arena3d.js\')'),'engine must load on demand');
+assert(!html.includes('src="public/vendor/tailwind'),'runtime Tailwind must not load');
+for(const id of ['btn-share','btn-install','btn-landing-fullscreen']) assert(html.includes(`id="${id}"`));
+assert(html.includes('https://www.instagram.com/yongssam.dev/'));
+assert(html.includes('https://www.mumuclass.kr/'));
+assert(html.includes('https://soccer3-plum.vercel.app/public/og-stadium-v1.jpg'));
+assert(html.includes('1280px!important') && html.includes('720px!important'));
+assert(html.includes('(gf.left - display.left) / scale'),'scaled input needs inverse transform');
+const manifest=JSON.parse(fs.readFileSync(path.join(root,'manifest.webmanifest'),'utf8'));
+assert.equal(manifest.start_url,'./');assert.equal(manifest.scope,'./');assert.equal(manifest.orientation,'landscape');
+for(const icon of manifest.icons) {assert(fs.existsSync(path.join(root,icon.src)));assert(['192x192','512x512'].includes(icon.sizes));}
+assert(fs.statSync(path.join(root,'public/hero-stadium-v1.webp')).size<300000);
+assert(fs.statSync(path.join(root,'public/app.min.css')).size<20000);
+console.log('Release assets, entry syntax, sharing, manifest, lazy engine and scaled input checks passed.');
